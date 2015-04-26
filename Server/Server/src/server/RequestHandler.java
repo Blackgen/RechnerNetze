@@ -35,7 +35,7 @@ public class RequestHandler implements Runnable {
                 sendAnswerToClient(parsedRequest);
                 if (shouldClose) {
                     try {
-
+                        System.out.println("Closing");
                         socket.close();
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -43,6 +43,7 @@ public class RequestHandler implements Runnable {
                 }
             }
         }
+
     }
 
     private void initialize(Socket socket) {

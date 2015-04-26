@@ -1,6 +1,7 @@
+import client.Client;
+
 import java.util.ArrayList;
 import java.util.List;
-import client.*;
 
 /**
  * Created by JanDennis on 26.04.2015.
@@ -19,7 +20,7 @@ public class Main {
             System.out.println("Error IlligalArgument");
         }
 
-        Client client = new Client(host,port,repeat,auto,commands);
+        Client client = new Client(host, port, repeat, auto, commands);
         System.out.println("Starting Client");
         client.run();
     }

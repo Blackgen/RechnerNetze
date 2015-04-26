@@ -16,7 +16,7 @@ public class Client implements Runnable {
     private int reapeating = 1;
     private List<String> commandList;
     private Boolean autoMode;
-    private Boolean manualMode=false;
+    private Boolean manualMode = false;
 
     BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
     private String Host;
@@ -36,8 +36,9 @@ public class Client implements Runnable {
             commandList.add("UPPERCASE halloWELT");
             commandList.add("LOWERCASE halloWELT");
             commandList.add("BYE");
-        } else if (manualMode){
-        loginManually();}
+        } else if (manualMode) {
+            loginManually();
+        }
     }
 
     private void initializeClient(String host, int port) {
@@ -48,13 +49,13 @@ public class Client implements Runnable {
         }
 
         try {
-            reader = new BufferedReader(new InputStreamReader(socket.getInputStream(),"UTF-8"));
+            reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
         } catch (IOException e) {
             e.printStackTrace();
         }
 
         try {
-            writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(),"UTF-8"));
+            writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -98,7 +99,7 @@ public class Client implements Runnable {
                 System.out.println("Client:> ");
                 try {
                     input = br.readLine().toString();
-                    System.out.println(">"+input);
+                    System.out.println(">" + input);
                 } catch (IOException e) {
                     //gotcha!
                     e.printStackTrace();
@@ -112,16 +113,17 @@ public class Client implements Runnable {
     }
 
     private String readServerOutput() {
-        String Result="";
+        String Result = "";
         try {
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream(),"UTF-8"));
-            Result=in.readLine();
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
+            Result = in.readLine();
         } catch (Exception e) {
             e.printStackTrace();
         }
 
         return Result;
     }
+
     private void loginManually() {
         String host = null;
         int port = 0;
