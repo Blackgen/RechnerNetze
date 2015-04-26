@@ -1,7 +1,5 @@
 package server;
 
-import util.StringUtils;
-
 import java.io.*;
 import java.net.Socket;
 import java.util.regex.Matcher;
@@ -11,15 +9,15 @@ import java.util.regex.Pattern;
  * Created by Paddy-Gaming on 24.04.2015.
  */
 public class RequestHandler implements Runnable {
-
+    Server Mother;
     private Socket socket;
     private BufferedReader reader;
     private BufferedWriter writer;
-    private Server server;
     private Boolean shouldClose = false;
 
-    public RequestHandler(Socket socket) {
+    public RequestHandler(Socket socket, Server mother) {
         this.socket = socket;
+        this.Mother = mother;
         initialize(socket);
     }
 
@@ -43,7 +41,8 @@ public class RequestHandler implements Runnable {
                 }
             }
         }
-
+        closeAll();
+        this.stop();
     }
 
     private void initialize(Socket socket) {
@@ -163,7 +162,7 @@ public class RequestHandler implements Runnable {
     }
 
     public void stop() {
-        shouldClose = false;
+        shouldClose = true;
     }
 
     private String shutdown(String password) {
@@ -171,14 +170,25 @@ public class RequestHandler implements Runnable {
 
         if (password.equals("dasspielistausman")) {
             result = "OK SHUTDOWN";
-        } else if(password.equals("")) {
-            result =  "ERROR password cannot be empty!";
+        } else if (password.equals("")) {
+            result = "ERROR password cannot be empty!";
         } else {
             result = "ERROR this password is not correct!";
         }
 
         stop();
-
+        Mother.shutDownServer();
         return result;
+    }
+
+    public void closeAll() {
+        try {
+            socket.close();
+            reader.close();
+            writer.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
     }
 }
