@@ -110,7 +110,7 @@ public class RequestHandler implements Runnable {
                     result = "OK " + lowercase(text);
                     break;
                 case "SHUTDOWN":
-                    shutdown(text);
+                    result = shutdown(text);
                     ;
                     break;
             }
