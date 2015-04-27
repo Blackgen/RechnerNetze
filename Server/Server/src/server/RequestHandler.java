@@ -39,10 +39,10 @@ public class RequestHandler implements Runnable {
                         e.printStackTrace();
                     }
                 }
-            }
+            } else {shouldClose=true;}
         }
         closeAll();
-        this.stop();
+        System.out.println("FIN RQ");
     }
 
     private void initialize(Socket socket) {
@@ -67,7 +67,8 @@ public class RequestHandler implements Runnable {
             clientMessage = readMessage();
             System.out.println("Message from Client is: " + clientMessage);
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println("ERROR getReq");
+            //e.printStackTrace();
         }
         return clientMessage;
     }
@@ -177,7 +178,7 @@ public class RequestHandler implements Runnable {
         }
 
         stop();
-        Mother.shutDownServer();
+        Mother.running=false;
         return result;
     }
 
@@ -187,6 +188,7 @@ public class RequestHandler implements Runnable {
             reader.close();
             writer.close();
         } catch (Exception e) {
+            System.out.println("ERR closeAll");
             e.printStackTrace();
         }
 
