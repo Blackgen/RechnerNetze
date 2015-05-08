@@ -17,9 +17,9 @@ public class Server implements Runnable {
     private int serverPort;
     private final int maxClientConnections = 3;
     private int currentClientConnections = 0;
-    public static Boolean newClientConnected=false;
+    public static Boolean newClientConnected = false;
     public static Socket newCLient;
-    public Boolean waitingForClient=false;
+    public Boolean waitingForClient = false;
 
     List<Thread> ClientList = new ArrayList<>();
 
@@ -35,40 +35,39 @@ public class Server implements Runnable {
     public void startServer() {
         Socket socket = null;
         while (running) {
-
-
             if (ClientList.size() < maxClientConnections) {
                 if (!waitingForClient) {
                     System.out.println("New Listener");
                     new Thread(new SocketListener(serverSocket)).start();
-                    waitingForClient=true;
+                    waitingForClient = true;
                 } else {
                     if (newClientConnected) {
-                        newClientConnected=false;
-                        waitingForClient=false;
+                        newClientConnected = false;
+                        waitingForClient = false;
 
                         socket = newCLient;
 
-                        Thread n = new Thread(new RequestHandler(socket,this));
-                        try {
-                            socket.setSoTimeout(10000);
-                        } catch (SocketException e) {
-                            System.out.println("Client Timeout");
-                            n.interrupt();
-                            try {
-                                socket.close();
-                            } catch (IOException e1) {
-                                e1.printStackTrace();
-                            }
-                        }
+                        Thread n = new Thread(new RequestHandler(socket, this));
+//                        try {
+//                            socket.setSoTimeout(10000);
+//                        } catch (SocketException e) {
+//                            System.out.println("Client Timeout");
+//                            n.interrupt();
+//                            try {
+//                                socket.close();
+//                            } catch (IOException e1) {
+//                                e1.printStackTrace();
+//                            }
+//                        }
                         ClientList.add(n);
                         n.start();
                         System.out.println("Client connected" + ClientList.size());
                     }
                 }
             }
-            for (Thread instance : ClientList) {
-                if (instance== null || !instance.isAlive()) {
+            if (ClientList.size() > 0) {
+                for (Thread instance : ClientList) {
+                    if (!instance.isAlive()) {
                     /*
                     And believe me I am still alive.
                     I'm doing science and I'm still alive.
@@ -77,16 +76,17 @@ public class Server implements Runnable {
                     And when you're dead I will be, still alive.
                     Still alive, still alive.
                      */
-                    ClientList.remove(instance);
-                    System.out.println("REMOVED");
+                        ClientList.remove(instance);
+                        System.out.println("REMOVED");
+                    }
                 }
             }
         }
         System.out.println("Wait for threads");
-        for (Thread instance : ClientList) {
-            try {
-            instance.join();} catch(Exception e){}
-        }
+//        for (Thread instance : ClientList) {
+//            try {
+//            instance.join();} catch(Exception e){}
+//        }
         System.out.println("FIN");
         try {
             serverSocket.close();

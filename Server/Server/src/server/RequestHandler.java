@@ -39,7 +39,9 @@ public class RequestHandler implements Runnable {
                         e.printStackTrace();
                     }
                 }
-            } else {shouldClose=true;}
+            } else {
+                shouldClose = true;
+            }
         }
         closeAll();
         System.out.println("FIN RQ");
@@ -178,7 +180,7 @@ public class RequestHandler implements Runnable {
         }
 
         stop();
-        Mother.running=false;
+        Mother.running = false;
         return result;
     }
 
