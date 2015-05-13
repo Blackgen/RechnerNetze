@@ -5,46 +5,49 @@ import java.net.Socket;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Created by Paddy-Gaming on 24.04.2015.
- */
 public class RequestHandler implements Runnable {
-    Server Mother;
     private Socket socket;
     private BufferedReader reader;
     private BufferedWriter writer;
-    private Boolean shouldClose = false;
+    private Boolean running = true;
+    private ShutdownInterface shutdownHandler;
+    private long lastExecution;
 
-    public RequestHandler(Socket socket, Server mother) {
+    public RequestHandler(Socket socket, ShutdownInterface shutdownHandler) {
         this.socket = socket;
-        this.Mother = mother;
+        this.shutdownHandler = shutdownHandler;
         initialize(socket);
     }
 
     @Override
     public void run() {
         System.out.println("Thread starts");
-        while (!shouldClose) {
+        while (running) {
             String clientRequest = getRequestFromClient();
             System.out.println("clientrequest = " + clientRequest);
             if (clientRequest != null) {
+
                 String parsedRequest = parseString(clientRequest);
                 System.out.println("Answer for Client : " + parsedRequest);
                 sendAnswerToClient(parsedRequest);
-                if (shouldClose) {
+                if (!running) {
                     try {
                         System.out.println("Closing");
                         socket.close();
                     } catch (Exception e) {
-                        e.printStackTrace();
+                       // e.printStackTrace();
                     }
                 }
             } else {
-                shouldClose = true;
+                running = false;
             }
         }
         closeAll();
-        System.out.println("FIN RQ");
+        System.out.println("FIN REQUESTHANDLER");
+    }
+
+    public boolean isRunning() {
+        return running;
     }
 
     private void initialize(Socket socket) {
@@ -139,24 +142,27 @@ public class RequestHandler implements Runnable {
         int count = 0;
         int c = 0;
 
-        while (((c = reader.read()) != -1) && !shouldClose) {
+        while (!buffer.endsWith("\n") && ((c = reader.read()) != -1)  ) {
             System.out.println(count + " | " + buffer);
             buffer += (char) c;
             count += 1;
+
             if (count >= 255) {
                 // Nachricht zu lang
                 sendAnswerToClient("Error Message too long!");
                 buffer = null;
 
                 //Buffer leeren:
-                while (((c = reader.read()) != -1) && (((char) c) != '\n') && !shouldClose) {
+                while (((c = reader.read()) != -1) && (((char) c) != '\n')) {
 
                 }
+
                 buffer = "";
-                break;
+                //break;
 
             } else if ((char) c == '\n') {
-                break;
+                lastExecution = System.currentTimeMillis();
+                //break;
             }
 
         }
@@ -165,7 +171,29 @@ public class RequestHandler implements Runnable {
     }
 
     public void stop() {
-        shouldClose = true;
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                long timeout = 30000;
+                long timeout2;
+                while (( timeout2 = timeout - (System.currentTimeMillis() - lastExecution) ) > 0){
+                    System.out.println(timeout);
+                    try {
+                        Thread.sleep(timeout2);
+                    } catch (InterruptedException e) {
+                        System.out.println("TESTFEHLER");
+                    }
+                }
+                System.out.println("CloseSocket");
+                running = false;
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    //
+                }
+            }
+        }).start();
     }
 
     private String shutdown(String password) {
@@ -179,8 +207,9 @@ public class RequestHandler implements Runnable {
             result = "ERROR this password is not correct!";
         }
 
-        stop();
-        Mother.running = false;
+        shutdownHandler.shutdown();
+        running = false;
+
         return result;
     }
 
@@ -190,7 +219,7 @@ public class RequestHandler implements Runnable {
             reader.close();
             writer.close();
         } catch (Exception e) {
-            System.out.println("ERR closeAll");
+            System.out.println("ERROR closeAll");
             e.printStackTrace();
         }
 

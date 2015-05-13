@@ -3,7 +3,6 @@ package server;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,18 +12,19 @@ import java.util.List;
 public class Server implements Runnable {
 
     private ServerSocket serverSocket;
-    public static Boolean running = true;
+    public Boolean running = true;
     private int serverPort;
     private final int maxClientConnections = 3;
-    private int currentClientConnections = 0;
     public static Boolean newClientConnected = false;
     public static Socket newCLient;
-    public Boolean waitingForClient = false;
+    private ShutdownInterface shutdownHandler;
 
-    List<Thread> ClientList = new ArrayList<>();
+    List<RequestHandler> ClientList = null;
 
-    public Server(int serverPort) {
+    public Server(int serverPort, List<RequestHandler> requestHandlerList, ShutdownInterface shutdownhandler) {
         this.serverPort = serverPort;
+        this.ClientList = requestHandlerList;
+        this.shutdownHandler = shutdownhandler;
         try {
             this.serverSocket = new ServerSocket(serverPort);
         } catch (IOException e) {
@@ -33,71 +33,49 @@ public class Server implements Runnable {
     }
 
     public void startServer() {
-        Socket socket = null;
+
         while (running) {
-            if (ClientList.size() < maxClientConnections) {
-                if (!waitingForClient) {
-                    System.out.println("New Listener");
-                    new Thread(new SocketListener(serverSocket)).start();
-                    waitingForClient = true;
-                } else {
-                    if (newClientConnected) {
-                        newClientConnected = false;
-                        waitingForClient = false;
+            Socket socket = null;
+            try {
+                socket = serverSocket.accept();
+                if (ClientList.size() < maxClientConnections) {
+                    RequestHandler requestHandler = new RequestHandler(socket, shutdownHandler);
+                    Thread n = new Thread(requestHandler);
+                    ClientList.add(requestHandler);
+                    n.start();
+                }
 
-                        socket = newCLient;
 
-                        Thread n = new Thread(new RequestHandler(socket, this));
-//                        try {
-//                            socket.setSoTimeout(10000);
-//                        } catch (SocketException e) {
-//                            System.out.println("Client Timeout");
-//                            n.interrupt();
-//                            try {
-//                                socket.close();
-//                            } catch (IOException e1) {
-//                                e1.printStackTrace();
-//                            }
-//                        }
-                        ClientList.add(n);
-                        n.start();
-                        System.out.println("Client connected" + ClientList.size());
+
+                if (ClientList.size() > 0) {
+                    for (RequestHandler instance : ClientList) {
+                        if (!instance.isRunning()) {
+                            ClientList.remove(instance);
+                            System.out.println("REMOVED CLIENT");
+                        }
                     }
                 }
-            }
-            if (ClientList.size() > 0) {
-                for (Thread instance : ClientList) {
-                    if (!instance.isAlive()) {
-                    /*
-                    And believe me I am still alive.
-                    I'm doing science and I'm still alive.
-                    I feel fantastic and I'm still alive.
-                    While you're dying I'll be still alive.
-                    And when you're dead I will be, still alive.
-                    Still alive, still alive.
-                     */
-                        ClientList.remove(instance);
-                        System.out.println("REMOVED");
-                    }
-                }
+
+            } catch (IOException e) {
+               // e.printStackTrace();
             }
         }
-        System.out.println("Wait for threads");
-//        for (Thread instance : ClientList) {
-//            try {
-//            instance.join();} catch(Exception e){}
-//        }
-        System.out.println("FIN");
+        System.out.println("Finish");
         try {
             serverSocket.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage());
         }
     }
 
     public void shutDownServer() {
         System.out.println("Shutdown received");
-        running = false;
+            running = false;
+            try {
+                serverSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
     }
 
     public void initializeServer() {

@@ -101,12 +101,16 @@ public class Client implements Runnable {
                     input = br.readLine().toString();
                     System.out.println(">" + input);
                 } catch (IOException e) {
-                    //gotcha!
                     e.printStackTrace();
                 }
-                if (input.toLowerCase().equals("exit")) break;
-                else if (input.equals("connect")) loginManually();
-                else writeToServer(input);
+
+                if (input.toLowerCase().equals("exit")) {
+                    break;
+                } else if (input.equals("connect")) {
+                    loginManually();
+                } else{
+                    writeToServer(input);
+                }
             }
             reapeating -= 1;
         }

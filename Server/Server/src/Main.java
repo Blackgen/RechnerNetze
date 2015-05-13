@@ -3,6 +3,7 @@
  */
 
 import server.Server;
+import server.ServerManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,8 +25,8 @@ public class Main {
             System.out.println("Error IlligalArgument");
         }
 
-        Server server = new Server(port);
-        server.run();
+        ServerManager serverManager = new ServerManager(port);
+
     }
 
     private static void showHelp() {
