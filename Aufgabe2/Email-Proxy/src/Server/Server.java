@@ -16,17 +16,16 @@ import java.util.Scanner;
  */
 public class Server implements Runnable {
 
-    private ServerSocket serverSocket;
-    public Boolean running = true;
-    private int serverPort;
-    private final int maxClientConnections = 3;
     public static Boolean newClientConnected = false;
     public static Socket newCLient;
+    public static List<EMailAccount> MailAccounts = new ArrayList();
+    private final int maxClientConnections = 3;
+    public Boolean running = true;
+    List<RequestHandler> ClientList = null;
+    private ServerSocket serverSocket;
+    private int serverPort;
     private ShutdownInterface shutdownHandler;
     private String AccountFile = "Accounts.txt";
-    public static List<EMailAccount> MailAccounts = new ArrayList();
-
-    List<RequestHandler> ClientList = null;
 
     public Server(int serverPort, List<RequestHandler> requestHandlerList, ShutdownInterface shutdownhandler) {
         this.serverPort = serverPort;
@@ -66,7 +65,7 @@ public class Server implements Runnable {
                 }
 
             } catch (IOException e) {
-               // e.printStackTrace();
+                // e.printStackTrace();
             }
         }
         System.out.println("Finish");
@@ -79,12 +78,12 @@ public class Server implements Runnable {
 
     public void shutDownServer() {
         System.out.println("Shutdown received");
-            running = false;
-            try {
-                serverSocket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        running = false;
+        try {
+            serverSocket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void run() {

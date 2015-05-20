@@ -8,7 +8,6 @@ import java.io.InputStreamReader;
  * Created by JanDennis on 13.05.2015.
  */
 public class util {
-    static BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
     public static final String ANSI_RESET = "\u001B[0m";
     public static final String ANSI_BLACK = "\u001B[30m";
     public static final String ANSI_RED = "\u001B[31m";
@@ -18,22 +17,27 @@ public class util {
     public static final String ANSI_PURPLE = "\u001B[35m";
     public static final String ANSI_CYAN = "\u001B[36m";
     public static final String ANSI_WHITE = "\u001B[37m";
+    static BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 
-    private util() {}
+    private util() {
+    }
+
     public static String readUserInput() {
-        String result=null;
+        String result = null;
         try {
-            result= br.readLine();
+            result = br.readLine();
         } catch (IOException e) {
             writeError("Err: Reading Userinput!");
         }
         if (result.equals("exit")) System.exit(0);
         return result;
     }
+
     public static void write(String text, String color) {
         System.out.println(color + text + ANSI_RESET);
     }
+
     public static void writeError(String text) {
-        write(text,ANSI_RED);
+        write(text, ANSI_RED);
     }
 }

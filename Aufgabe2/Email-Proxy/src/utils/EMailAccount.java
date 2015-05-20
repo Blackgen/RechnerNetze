@@ -11,7 +11,8 @@ public class EMailAccount {
     private String password;
     private boolean locked = false;
 
-    public EMailAccount(){}
+    public EMailAccount() {
+    }
 
     public EMailAccount(String host, int port, String username, String password, boolean isLocked) {
         this.host = host;
@@ -21,7 +22,7 @@ public class EMailAccount {
         this.locked = isLocked;
     }
 
-    public EMailAccount(String [] splitted) {
+    public EMailAccount(String[] splitted) {
         this.host = splitted[0];
         this.port = Integer.parseInt(splitted[1]);
         this.username = splitted[2];
@@ -41,28 +42,28 @@ public class EMailAccount {
         return this.host;
     }
 
-    public int getPort() {
-        return this.port;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
     public void setHost(String host) {
         this.host = host;
+    }
+
+    public int getPort() {
+        return this.port;
     }
 
     public void setPort(int port) {
         this.port = port;
     }
 
+    public String getUsername() {
+        return username;
+    }
+
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
     }
 
     public void setPassword(String password) {

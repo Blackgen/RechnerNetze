@@ -1,7 +1,8 @@
-import utils.util;
 import Client.Client;
+import Server.ServerManager;
+import utils.util;
+
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,12 +13,11 @@ import java.util.List;
 public class Main {
     BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
     private String myColor = "\u001B[32m"; // GREEN
-    private List<Client> Clientlist =new ArrayList<>();
+    private List<Client> Clientlist = new ArrayList<>();
 
     public static void main(String[] args) {
         Main main = new Main();
         main.startConsole();
-        main.setupClient();
     }
 
     private void startConsole() {
@@ -31,59 +31,70 @@ public class Main {
             case "server":
             case "s":
                 write("I will act as a Server!");
-                result="s";
+                result = "s";
                 break;
             case "client":
             case "c":
                 write("I'll create a Client!");
-                result="c";
+                result = "c";
                 break;
             case "both":
             case "b":
             case "":
                 write("I'll set up both!");
-                result="b";
+                result = "b";
                 break;
             default:
                 write("Couln't parse your Input! Try again.");
                 break;
         }
-        if(result.equals(null)) System.exit(0);
+        if (result.equals(null)) System.exit(0);
 
         if (result.equals("c") || result.equals("b")) {
             write("How many Clients should I set up? ");
-            int count= Integer.parseInt(util.readUserInput());
+            int count = Integer.parseInt(util.readUserInput());
             for (int i = 0; i < count; i++) {
-                write("\n"+i+". Client: ");
+                write("\n" + i + ". Client: ");
                 setupClient();
             }
         }
 
-        if (result.equals("s")||result.equals("b")) {
+        if (result.equals("s") || result.equals("b")) {
             write("Setting up Server.");
             setupServer();
         }
-        new Thread(Clientlist.get(0)).start();
+        for (int i = 0; i < Clientlist.size(); i++) {
+            new Thread(Clientlist.get(i)).start();
+        }
+
     }
 
     private void write(String text) {
         util.write(text, myColor);
     }
+
     private void setupServer() {
+        int port = 0;
+        write("Please enter the Port you want to use :");
+        port = Integer.parseInt(util.readUserInput());
+        write("Have fun ;)\n\n");
+        ServerManager s = new ServerManager(port);
+
 
     }
-    private void setupClient(){
-        String host,user,pass;
+
+    private void setupClient() {
+        String host, user, pass;
         int port;
         write("Hostname: ");
-        host=util.readUserInput();
+        host = util.readUserInput();
         write("Port: ");
-        port=Integer.parseInt(util.readUserInput());
+        port = Integer.parseInt(util.readUserInput());
         write("Username: ");
-        user=util.readUserInput();
+        user = util.readUserInput();
         write("Passwort: ");
-        pass=util.readUserInput();
-        Client c = new Client(host,port,user,pass,"\u001B[36m");
+        pass = util.readUserInput();
+        Client c = new Client(host, port, user, pass, "\u001B[36m");
         Clientlist.add(c);
     }
 }
