@@ -4,7 +4,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 
 /**
- * Created by JanDennis on 17.05.2015.
+ * Created by JanDennis on 27.04.2015.
  */
 public class SocketListener implements Runnable{
     ServerSocket mother;
@@ -14,9 +14,9 @@ public class SocketListener implements Runnable{
     @Override
     public void run() {
         try{
-            Socket Client = mother.accept();
+        Socket Client = mother.accept();
             Server.newCLient=Client;
-            Server.newClientConnected=true;}
+        Server.newClientConnected=true;}
         catch (Exception e) {}
     }
 }
