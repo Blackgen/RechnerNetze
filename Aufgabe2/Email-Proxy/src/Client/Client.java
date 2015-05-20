@@ -20,6 +20,7 @@ public class Client implements Runnable {
     private BufferedWriter writer;
     public Boolean shouldStop = false;
     private static final String OK = "+OK";
+    private final String ENDE = "\r\n";
 
     public Client(String host, int port, String user, String pass, String color) {
         this.host = host;
@@ -82,7 +83,7 @@ public class Client implements Runnable {
         String result = null;
         String backslashRN = "\r\n";
         try {
-            writer.write("STAT");
+            writer.write("STAT" + ENDE);
             result = readText(backslashRN);
         } catch (IOException e) {
             e.printStackTrace();
@@ -97,7 +98,7 @@ public class Client implements Runnable {
         String message = null;
         String retrEnding = "\r\n.\r\n";
         try {
-            writer.write("RETR " + number);
+            writer.write("RETR " + number + ENDE);
             message = readText(retrEnding);
         } catch (IOException e) {
             e.printStackTrace();
@@ -110,7 +111,7 @@ public class Client implements Runnable {
             e.printStackTrace();
         }
         try {
-            writer.write("DELE " + number);
+            writer.write("DELE " + number + ENDE);
             if (!readTextAndStartsWithOK()) {
                 write("-ERR: DELE NOT OK");
             }
@@ -128,7 +129,7 @@ public class Client implements Runnable {
         username = this.username;
 
         try {
-            writer.write(username);
+            writer.write("USER" + username + ENDE);
             writer.flush();
         } catch (IOException e) {
             //e.printStackTrace();
@@ -140,7 +141,7 @@ public class Client implements Runnable {
         password = this.password;
 
         try {
-            writer.write(password);
+            writer.write("PASS" + password + ENDE);
             writer.flush();
         } catch (IOException e) {
             //e.printStackTrace();
@@ -164,18 +165,19 @@ public class Client implements Runnable {
             //e.printStackTrace();
         }
 
+        buffer = buffer + (char) charState;
         // schaue ob mit reader.read nicht das ende erreicht wurde (charstate) und das das letzte zeichen kein \r\n ist
         while ((charState != -1) && (buffer.endsWith(ending) == false)) {
-            buffer = buffer + (char) charState;
 
             try {
                 charState = reader.read();
+                buffer = buffer + (char) charState;
             } catch (IOException e) {
                 // e.printStackTrace();
             }
         }
 
-        if (buffer.startsWith(OK)) {
+        if (!buffer.startsWith(OK)) {
             throw new RuntimeException("Kein +OK am Anfang vorhanden!");
         }
         return buffer;
