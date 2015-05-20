@@ -9,23 +9,26 @@ import java.net.Socket;
  * Created by JanDennis on 13.05.2015.
  */
 public class Client implements Runnable {
+
     private String myColor = "\u001B[34m"; // BLUE
     private String host;
     private int port;
-    private String Username;
-    private String Password;
+    private String username;
+    private String password;
     private Socket socket;
     private BufferedReader reader;
     private BufferedWriter writer;
     public Boolean shouldStop = false;
+    private static final String OK = "+OK";
 
-    public Client(String host, int port, String user, String pass,String color) {
+    public Client(String host, int port, String user, String pass, String color) {
         this.host = host;
         this.port = port;
-        this.Username = user;
-        this.Password = pass;
+        this.username = user;
+        this.password = pass;
         this.myColor = color;
     }
+
     public void run() {
         write("Client started.");
         try {
@@ -33,9 +36,9 @@ public class Client implements Runnable {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        while(!shouldStop) {
+        while (!shouldStop) {
             int mailCount = checkMails();
-            while(mailCount > 0) {
+            while (mailCount > 0) {
                 getMails(mailCount);
             }
             try {
@@ -45,76 +48,137 @@ public class Client implements Runnable {
             }
         }
     }
-    private void connect() throws IOException{
-        write("Connecting to " + host + ":" + port + ", as " + Username);
+
+    private void connect() throws IOException {
+        write("Connecting to " + host + ":" + port + ", as " + username);
         try {
-            socket = new Socket(host,port);
+            socket = new Socket(host, port);
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
             writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8"));
         } catch (IOException e) {
             write("Connection failed!");
-            //e.printStackTrace();
+            e.printStackTrace();
         }
-        if (!reader.readLine().startsWith("OK")) {
-            write("ERR: Server dont greet");
+
+        if (!readTextAndStartsWithOK()) {
+            write("-ERR: Server don't want to answer you!");
             return;
         }
-        writer.write("USER "+Username);
-        if (!reader.readLine().startsWith("OK")) {
-            write("ERR: User not OK");
+
+        sendUsername(username);
+        if (!readTextAndStartsWithOK()) {
+            write("-ERR: Invalid Username.");
             return;
         }
-        writer.write("PASS "+Password);
-        if (!reader.readLine().startsWith("OK")) {
-            write("ERR: Login not OK");
+
+        sendPassword(password);
+        if (!readTextAndStartsWithOK()) {
+            write("-ERR: Invalid password or this account is locked.");
             return;
         }
     }
 
     private Integer checkMails() {
         String result = null;
+        String backslashRN = "\r\n";
         try {
             writer.write("STAT");
-            result = reader.readLine();
+            result = readText(backslashRN);
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        if (result.startsWith("OK")) {
-            return Integer.parseInt(result.substring(0, result.indexOf(' ')));
-        }
 
-        return 0;
+        return Integer.parseInt(result.substring(0, result.indexOf(' ')));
     }
 
-    private void getMails(int numb) {
+    private void getMails(int number) {
 
-        String msg = null;
+        String message = null;
+        String retrEnding = "\r\n.\r\n";
         try {
-            writer.write("RETR " + numb);
-            msg = reader.readLine();
+            writer.write("RETR " + number);
+            message = readText(retrEnding);
         } catch (IOException e) {
             e.printStackTrace();
         }
         try {
-            FileWriter fstream = new FileWriter("Email" + numb);
-            fstream.write(msg);
+            FileWriter fstream = new FileWriter("Email" + number);
+            fstream.write(message);
             fstream.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
         try {
-            writer.write("DELE " + numb);
-            if (!reader.readLine().startsWith("OK")) {
-                write("ERR: DELE NOT OK");
+            writer.write("DELE " + number);
+            if (!readTextAndStartsWithOK()) {
+                write("-ERR: DELE NOT OK");
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
     private void write(String text) {
         util.write(text, myColor);
     }
 
+    private void sendUsername(String username) {
+
+        username = this.username;
+
+        try {
+            writer.write(username);
+            writer.flush();
+        } catch (IOException e) {
+            //e.printStackTrace();
+        }
+    }
+
+    private void sendPassword(String password) {
+
+        password = this.password;
+
+        try {
+            writer.write(password);
+            writer.flush();
+        } catch (IOException e) {
+            //e.printStackTrace();
+        }
+    }
+
+    private boolean readTextAndStartsWithOK() {
+        String backslashRN = "\r\n";
+        return readText(backslashRN).startsWith(OK);
+    }
+
+    // prüft beim reader.read, ob der entgegengenommene sting mit einem OK beginnt
+    private String readText(String ending) {
+        String buffer = "";
+        int charState = 0;
+
+        try {
+            // Lesen eines einzelnen Characters
+            charState = reader.read();
+        } catch (IOException e) {
+            //e.printStackTrace();
+        }
+
+        // schaue ob mit reader.read nicht das ende erreicht wurde (charstate) und das das letzte zeichen kein \r\n ist
+        while ((charState != -1) && (buffer.endsWith(ending) == false)) {
+            buffer = buffer + (char) charState;
+
+            try {
+                charState = reader.read();
+            } catch (IOException e) {
+                // e.printStackTrace();
+            }
+        }
+
+        if (buffer.startsWith(OK)) {
+            throw new RuntimeException("Kein +OK am Anfang vorhanden!");
+        }
+        return buffer;
+    }
 }
 

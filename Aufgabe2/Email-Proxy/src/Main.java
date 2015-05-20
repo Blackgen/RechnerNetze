@@ -15,7 +15,9 @@ public class Main {
     private List<Client> Clientlist =new ArrayList<>();
 
     public static void main(String[] args) {
-
+        Main main = new Main();
+        main.startConsole();
+        main.setupClient();
     }
 
     private void startConsole() {
@@ -61,6 +63,7 @@ public class Main {
             write("Setting up Server.");
             setupServer();
         }
+        new Thread(Clientlist.get(0)).start();
     }
 
     private void write(String text) {
