@@ -129,7 +129,7 @@ public class Client implements Runnable {
         username = this.username;
 
         try {
-            writer.write("USER" + username + ENDE);
+            writer.write("USER " + username + ENDE);
             writer.flush();
         } catch (IOException e) {
             //e.printStackTrace();
@@ -141,7 +141,7 @@ public class Client implements Runnable {
         password = this.password;
 
         try {
-            writer.write("PASS" + password + ENDE);
+            writer.write("PASS " + password + ENDE);
             writer.flush();
         } catch (IOException e) {
             //e.printStackTrace();
