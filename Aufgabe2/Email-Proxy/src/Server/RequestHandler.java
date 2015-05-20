@@ -1,7 +1,15 @@
 package Server;
 
+import utils.EMailAccount;
+
 import java.io.*;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -13,6 +21,10 @@ public class RequestHandler implements Runnable {
     private Boolean running = true;
     private ShutdownInterface shutdownHandler;
     private long lastExecution;
+    String State=null;
+    private String User=null;
+    private EMailAccount Account;
+    private List<Integer> deleteList = new ArrayList<>();
 
     public RequestHandler(Socket socket, ShutdownInterface shutdownHandler) {
         this.socket = socket;
@@ -31,12 +43,13 @@ public class RequestHandler implements Runnable {
                 String parsedRequest = parseString(clientRequest);
                 System.out.println("Answer for Client : " + parsedRequest);
                 sendAnswerToClient(parsedRequest);
+                sendAnswerToClient("\r");
                 if (!running) {
                     try {
                         System.out.println("Closing");
                         socket.close();
                     } catch (Exception e) {
-                       // e.printStackTrace();
+                        // e.printStackTrace();
                     }
                 }
             } else {
@@ -92,36 +105,52 @@ public class RequestHandler implements Runnable {
     private String parseString(String inputText) {
         String result = null;
 
+        // REGEX Keyword + Any Ascii > 31 (Newline & Stuff)
         final Pattern REGEX = Pattern
-                .compile("(?<KEYWORD>REVERSE|LOWERCASE|UPPERCASE|SHUTDOWN) (?<STRING>[a-zA-Z0-9]+)\n");
+                .compile("(?<KEYWORD>USER|PASS|STAT|LIST|RETR|DELE|NOOP|RSET|QUIT)( (?<STRING>[\\x1F-\\x7F]+))?\n");
 
         Matcher matcher = REGEX.matcher(inputText);
-        if (!matcher.matches()) {
-            if (inputText.equals("BYE" + '\n')) {
-                result = "OK BYE";
-                stop();
-            } else {
-                result = "ERROR Unknown Command! Server sagt NEIN!";
-            }
-        } else {
-            String keyword = matcher.group("KEYWORD");
-            String text = matcher.group("STRING");
-            switch (keyword) {
-                case "REVERSE":
-                    result = "OK ";
-                    break;
-                case "UPPERCASE":
-                    result = "OK ";
-                    break;
-                case "LOWERCASE":
-                    result = "OK ";
-                    break;
-                case "SHUTDOWN":
-                    result = shutdown(text);
-                    ;
-                    break;
-            }
+
+        String keyword = matcher.group("KEYWORD");
+        String text = matcher.group("STRING");
+        switch (keyword) {
+            case "USER":
+                if (text.isEmpty()) {
+                    result="-ERR User can't be empty!";
+                } else {
+                    result = authUser(text);
+                result = "+OK";
+                }
+                break;
+            case "PASS":
+
+                    result = authPass(text);
+                break;
+            case "STAT":
+
+                result = getStatus();
+                break;
+            case "LIST":
+                result=listEmails(text);
+                break;
+            case "RETR":
+                result = retrieveMails(text);
+                break;
+            case "DELE":
+                result=markForDeletion(text);
+                break;
+            case "NOOP":
+                result = "+OK";
+                break;
+            case "RSET":
+                deleteList.clear();
+                result = "+OK";
+                break;
+            case "QUIT":
+                result=deleteMails();
+                break;
         }
+
         return result;
     }
 
@@ -132,7 +161,7 @@ public class RequestHandler implements Runnable {
         int count = 0;
         int c = 0;
 
-        while (!buffer.endsWith("\n") && ((c = reader.read()) != -1)  ) {
+        while (!buffer.endsWith("\n") && ((c = reader.read()) != -1)) {
             System.out.println(count + " | " + buffer);
             buffer += (char) c;
             count += 1;
@@ -167,7 +196,7 @@ public class RequestHandler implements Runnable {
             public void run() {
                 long timeout = 30000;
                 long timeout2;
-                while (( timeout2 = timeout - (System.currentTimeMillis() - lastExecution) ) > 0){
+                while ((timeout2 = timeout - (System.currentTimeMillis() - lastExecution)) > 0) {
                     System.out.println(timeout);
                     try {
                         Thread.sleep(timeout2);
@@ -214,4 +243,160 @@ public class RequestHandler implements Runnable {
         }
 
     }
+
+    private String authUser(String Username) {
+        String result=null;
+        if (!State.equals("UserAuth")) return "-ERR Not in right state";
+        if (Server.MailAccounts.stream().anyMatch(e -> e.getUsername().equals(Username))) {
+            // Username vorhanden
+            result = "+OK "+Username+" is a valid Account";
+            State="PassAuth";
+        } else {
+            result = "-ERR "+Username+" is not a known account!";
+        }
+        return result;
+    }
+
+    private String authPass(String Password) {
+        String result = null;
+        if (Password.isEmpty()) return "-ERR Pass can't be empty!";
+        if (!State.equals("PassAuth")) return "-Err Not in right State!";
+
+        EMailAccount a = Server.MailAccounts.stream().filter(e -> e.getUsername().equals(User)).findAny().get();
+        if (!a.equals(null) && a.getPassword().equals(Password)) {
+            if (a.isLocked()) {
+                result="-ERR "+User+" is already Locked!";
+                State="Begin";
+            } else {
+                result = "+OK";
+                Account=a;
+                State="Transaction";
+            }
+
+        } else {
+            result="-ERR Password not valid";
+        }
+        return result;
+    }
+
+    private String getStatus() {
+        String result=null;
+
+        if (!State.equals("Transaction")) return "-ERR not Authentificated";
+
+        result = "+OK "+ getMailCountAndSize();
+
+        return result;
+    }
+
+    private String getMailCountAndSize() {
+        File folder = new File("");
+        List<File> listOfFiles = new ArrayList<File>(Arrays.asList(folder.listFiles()));
+
+        int count=0;
+        long size=0;
+
+        for(File F : listOfFiles) {
+            if (F.getName().startsWith(User)) {
+                count++;
+                size+=F.length();
+            }
+        }
+        return count + " " +size;
+    }
+
+    private String listEmails(String input){
+        String result=null;
+        if (!State.equals("Transaction")) return "-ERR Authentificate first!";
+
+        if (input.isEmpty()) {
+            File folder = new File("");
+            List<File> listOfFiles = new ArrayList<File>(Arrays.asList(folder.listFiles()));
+
+            int count=0;
+            long size=0;
+            List<String> resultSet=new ArrayList<>();
+
+            for(File F : listOfFiles) {
+                if (F.getName().startsWith(User)) {
+                    String current = F.getName().substring(User.length());
+                    current += " "+F.length();
+                    resultSet.add(current);
+                }
+            }
+
+            sendAnswerToClient("+OK "+resultSet.size());
+
+            for (String line : resultSet) {
+                sendAnswerToClient(line);
+            }
+
+            result=".";
+        } else {
+            File wanted = new File(User+input+".txt");
+            if (!wanted.exists()) result = "-ERR Mail not found!";
+            else result=input+" "+wanted.length();
+        }
+
+        return result;
+    }
+
+    private String retrieveMails(String input) {
+        String result=null;
+
+        if (!State.equals("Transaction")) return "-ERR Wrong State!";
+        if (input.isEmpty()) return "-ERR Please specify an ID!";
+
+        File wanted = new File(User+input+".txt");
+
+        if (wanted.exists()) {
+            sendAnswerToClient("OK "+wanted.length());
+
+            try {
+                Scanner in = new Scanner(new FileReader(wanted));
+                while(in.hasNext()) {
+                    sendAnswerToClient(in.next());
+                }
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+            result=".";
+        } else {
+            result = "-ERR No such Message!";
+        }
+
+        return result;
+    }
+
+    private String markForDeletion(String input) {
+        String result;
+        if (!State.equals("Transaction")) return "-ERR Wrong State";
+        if (input.isEmpty()) return "-ERR please select a messageid";
+
+        int i= Integer.parseInt(input);
+
+        File wanted=new File(User+i+".txt");
+        if (wanted.exists()) {
+            deleteList.add(i);
+            result="+OK "+i+" is marked to be deleted!";
+        } else {
+            result="-ERR "+i+" is not a known messageid";
+        }
+        return result;
+    }
+
+    private String deleteMails() {
+        String result=null;
+        if (!State.equals("Transaction")) return "-Err Wrong State";
+        Boolean r=false;
+
+        for(int f : deleteList) {
+
+                File w = new File(User+f+".txt");
+                r |= w.delete();
+        }
+        result= r ? "-ERR Delete not sucessful!" : "+OK";
+        return result;
+    }
 }
+

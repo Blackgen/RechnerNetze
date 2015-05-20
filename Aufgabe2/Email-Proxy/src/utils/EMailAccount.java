@@ -1,9 +1,5 @@
 package utils;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-
 /**
  * Created by JanDennis on 17.05.2015.
  */
@@ -13,15 +9,16 @@ public class EMailAccount {
     private int port;
     private String username;
     private String password;
-    private boolean ssl = false;
+    private boolean locked = false;
 
+    public EMailAccount(){}
 
-    public EMailAccount(String host, int port, String username, String password, boolean useSSL) {
+    public EMailAccount(String host, int port, String username, String password, boolean isLocked) {
         this.host = host;
         this.port = port;
         this.username = username;
         this.password = password;
-        this.ssl = useSSL;
+        this.locked = isLocked;
     }
 
     public EMailAccount(String [] splitted) {
@@ -29,15 +26,15 @@ public class EMailAccount {
         this.port = Integer.parseInt(splitted[1]);
         this.username = splitted[2];
         this.password = splitted[3];
-        this.ssl = Boolean.parseBoolean(splitted[4]);
+        this.locked = Boolean.parseBoolean(splitted[4]);
     }
 
-    public boolean isSsl() {
-        return this.ssl;
+    public boolean isLocked() {
+        return this.locked;
     }
 
-    public void setSsl(boolean useSSL) {
-        this.ssl = useSSL;
+    public void setLocked(boolean isLocked) {
+        this.locked = isLocked;
     }
 
     public String getHost() {

@@ -1,10 +1,15 @@
 package Server;
 
+import utils.EMailAccount;
+
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 
 /**
  * Created by Paddy-Gaming on 24.04.2015.
@@ -18,6 +23,8 @@ public class Server implements Runnable {
     public static Boolean newClientConnected = false;
     public static Socket newCLient;
     private ShutdownInterface shutdownHandler;
+    private String AccountFile = "Accounts.txt";
+    public static List<EMailAccount> MailAccounts = new ArrayList();
 
     List<RequestHandler> ClientList = null;
 
@@ -33,6 +40,8 @@ public class Server implements Runnable {
     }
 
     public void startServer() {
+        // Loading up all Accounts
+        loadAccounts();
 
         while (running) {
             Socket socket = null;
@@ -46,7 +55,7 @@ public class Server implements Runnable {
                 }
 
 
-
+                // Check if Clients are still alive, still alive, still alive..
                 if (ClientList.size() > 0) {
                     for (RequestHandler instance : ClientList) {
                         if (!instance.isRunning()) {
@@ -80,5 +89,21 @@ public class Server implements Runnable {
 
     public void run() {
         startServer();
+    }
+
+    private void loadAccounts() {
+        try {
+            Scanner in = new Scanner(new FileReader("filename.txt"));
+            while (in.hasNext()) {
+                String[] res = in.next().split("|");
+                EMailAccount acc = new EMailAccount();
+                acc.setUsername(res[0]);
+                acc.setPassword(res[1]);
+                MailAccounts.add(acc);
+            }
+            in.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
     }
 }
