@@ -89,15 +89,19 @@ public class Client implements Runnable {
         String result = null;
         String backslashRN = "\r\n";
         try {
-            writer.write("LIST " + ENDE);
+            writer.write("LIST" + ENDE);
             writer.flush();
             result = readText(backslashRN + "." + backslashRN);
         } catch (IOException e) {
             e.printStackTrace();
         }
 
+        //Integer.parseInt(result.substring(0,result.indexOf("\n")).replace("+OK",""));
         System.out.println("Result : " + result);
-        return Integer.parseInt(result.substring(5, result.indexOf(' ', 5)));
+        System.out.println("< "+result.substring(0, result.indexOf("\n")));
+        System.out.println("> "+result.substring(0, result.indexOf("\n")-1).replace("+OK ", "")+" <");
+        //return Integer.parseInt(result.substring(5, result.indexOf(' ', 5)));
+        return Integer.parseInt(result.substring(0, result.indexOf("\n")-1).replace("+OK ", ""));
     }
 
     public void getMails(int number) {

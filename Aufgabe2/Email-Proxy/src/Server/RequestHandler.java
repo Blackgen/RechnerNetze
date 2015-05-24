@@ -23,6 +23,7 @@ public class RequestHandler implements Runnable {
     private String User = null;
     private EMailAccount Account;
     private List<Integer> deleteList = new ArrayList<>();
+    private final String MailDropPath = System.getProperty("user.dir")+"\\Mails\\";
 
     public RequestHandler(Socket socket, ShutdownInterface shutdownHandler) {
         this.socket = socket;
@@ -74,6 +75,7 @@ public class RequestHandler implements Runnable {
             e.printStackTrace();
         }
         System.out.println("Client connection established!");
+        sendAnswerToClient("+OK");
     }
 
     // Bekommt eine Anfrage vom Client
@@ -92,6 +94,7 @@ public class RequestHandler implements Runnable {
     // Sendet eine Antwort zum Client zurueck
     public void sendAnswerToClient(String answer) {
         try {
+            System.out.println("Send: "+answer);
             writer.write(answer + "\r\n");
             writer.flush();
         } catch (IOException e) {
@@ -104,11 +107,11 @@ public class RequestHandler implements Runnable {
 
         // REGEX Keyword + Any Ascii > 31 (Newline & Stuff)
         final Pattern REGEX = Pattern
-                .compile("(?<KEYWORD>USER|PASS|STAT|LIST|RETR|DELE|NOOP|RSET|QUIT)( (?<STRING>[\\x1F-\\x7F]+))?\n");
+                .compile("(?<KEYWORD>USER|PASS|STAT|LIST|RETR|DELE|NOOP|RSET|QUIT)( (?<STRING>[\\x1F-\\x7F]+))?(\r)?\n");
 
         Matcher matcher = REGEX.matcher(inputText);
 
-        if (!matcher.matches()) return "ERR";
+        if (!matcher.matches()) return "-ERR No Match";
 
         String keyword = matcher.group("KEYWORD");
         String text = matcher.group("STRING");
@@ -318,7 +321,7 @@ public class RequestHandler implements Runnable {
         if (!State.equals("Transaction")) return "-ERR Authentificate first!";
 
         if (input==null || input.isEmpty()) {
-            File folder = new File(System.getProperty("user.dir")+"\\Mails\\");
+            File folder = new File(MailDropPath);
             if (folder.listFiles()==null) return "+OK 0";
             List<File> listOfFiles = new ArrayList<File>(Arrays.asList(folder.listFiles()));
 
@@ -356,10 +359,11 @@ public class RequestHandler implements Runnable {
         if (!State.equals("Transaction")) return "-ERR Wrong State!";
         if (input.isEmpty()) return "-ERR Please specify an ID!";
 
-        File wanted = new File(User + input + ".txt");
+        File wanted = new File(MailDropPath+User + input + ".txt");
+        System.out.println(">RETR "+MailDropPath+User + input + ".txt");
 
         if (wanted.exists()) {
-            sendAnswerToClient("OK " + wanted.length());
+            sendAnswerToClient("+OK " + wanted.length());
 
             try {
                 Scanner in = new Scanner(new FileReader(wanted));
@@ -384,7 +388,7 @@ public class RequestHandler implements Runnable {
 
         int i = Integer.parseInt(input);
 
-        File wanted = new File(User + i + ".txt");
+        File wanted = new File(MailDropPath+User + i + ".txt");
         if (wanted.exists()) {
             deleteList.add(i);
             result = "+OK " + i + " is marked to be deleted!";
@@ -399,13 +403,16 @@ public class RequestHandler implements Runnable {
         if (!State.equals("Transaction")) return "-Err Wrong State";
         Boolean r = false;
 
+
         for (int f : deleteList) {
 
-            File w = new File(User + f + ".txt");
+            File w = new File(MailDropPath+User + f + ".txt");
             r |= w.delete();
         }
         result = r ? "-ERR Delete not sucessful!" : "+OK";
         return result;
     }
 }
+
+
 
