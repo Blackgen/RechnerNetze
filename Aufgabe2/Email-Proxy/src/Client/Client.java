@@ -39,14 +39,20 @@ public class Client implements Runnable {
         }
         while (!shouldStop) {
             int mailCount = checkMails();
+            System.out.println("MailCount = " + mailCount);
             while (mailCount > 0) {
                 getMails(mailCount);
+                mailCount--;
             }
-            try {
-                wait(5000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            //shouldStop = true;
+            quit();
+//            try {
+////                quit();
+//                shouldStop = true;
+//                wait(5000);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
         }
     }
 
@@ -79,26 +85,28 @@ public class Client implements Runnable {
         }
     }
 
-    private Integer checkMails() {
+    public Integer checkMails() {
         String result = null;
         String backslashRN = "\r\n";
         try {
-            writer.write("STAT" + ENDE);
-            result = readText(backslashRN);
+            writer.write("LIST " + ENDE);
+            writer.flush();
+            result = readText(backslashRN + "." + backslashRN);
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-
-        return Integer.parseInt(result.substring(0, result.indexOf(' ')));
+        System.out.println("Result : " + result);
+        return Integer.parseInt(result.substring(5, result.indexOf(' ', 5)));
     }
 
-    private void getMails(int number) {
-
+    public void getMails(int number) {
+        System.out.println("HUHU get mails " + number);
         String message = null;
         String retrEnding = "\r\n.\r\n";
         try {
             writer.write("RETR " + number + ENDE);
+            writer.flush();
             message = readText(retrEnding);
         } catch (IOException e) {
             e.printStackTrace();
@@ -112,9 +120,19 @@ public class Client implements Runnable {
         }
         try {
             writer.write("DELE " + number + ENDE);
+            writer.flush();
             if (!readTextAndStartsWithOK()) {
                 write("-ERR: DELE NOT OK");
             }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void quit() {
+        try {
+            writer.write("QUIT ");
+            writer.flush();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -175,9 +193,11 @@ public class Client implements Runnable {
             } catch (IOException e) {
                 // e.printStackTrace();
             }
+            System.out.println("Gimme dat Buffer : " + buffer);
         }
 
         if (!buffer.startsWith(OK)) {
+            System.out.println("Buffer : " + buffer);
             throw new RuntimeException("Kein +OK am Anfang vorhanden!");
         }
         return buffer;
