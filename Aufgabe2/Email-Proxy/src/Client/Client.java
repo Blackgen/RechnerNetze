@@ -112,7 +112,8 @@ public class Client implements Runnable {
             e.printStackTrace();
         }
         try {
-            FileWriter fstream = new FileWriter("Email" + number);
+            File mail = new File(System.getProperty("user.dir") + "\\Mails\\", username + number + ".txt");
+            FileWriter fstream = new FileWriter(mail);
             fstream.write(message);
             fstream.close();
         } catch (IOException e) {
