@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 
 public class RequestHandler implements Runnable {
 
-    String State = null;
+    String State = "UserAuth";
     private Socket socket;
     private BufferedReader reader;
     private BufferedWriter writer;
@@ -108,15 +108,16 @@ public class RequestHandler implements Runnable {
 
         Matcher matcher = REGEX.matcher(inputText);
 
+        if (!matcher.matches()) return "ERR";
+
         String keyword = matcher.group("KEYWORD");
         String text = matcher.group("STRING");
         switch (keyword) {
             case "USER":
-                if (text.isEmpty()) {
+                if (text == null || text.isEmpty()) {
                     result = "-ERR User can't be empty!";
                 } else {
                     result = authUser(text);
-                    result = "+OK";
                 }
                 break;
             case "PASS":
@@ -159,7 +160,7 @@ public class RequestHandler implements Runnable {
         int c = 0;
 
         while (!buffer.endsWith("\n") && ((c = reader.read()) != -1)) {
-            System.out.println(count + " | " + buffer);
+            //System.out.println(count + " | " + buffer);
             buffer += (char) c;
             count += 1;
 
@@ -247,6 +248,7 @@ public class RequestHandler implements Runnable {
         if (Server.MailAccounts.stream().anyMatch(e -> e.getUsername().equals(Username))) {
             // Username vorhanden
             result = "+OK " + Username + " is a valid Account";
+            User=Username;
             State = "PassAuth";
         } else {
             result = "-ERR " + Username + " is not a known account!";
@@ -256,11 +258,17 @@ public class RequestHandler implements Runnable {
 
     private String authPass(String Password) {
         String result = null;
-        if (Password.isEmpty()) return "-ERR Pass can't be empty!";
+        if (Password==null || Password.isEmpty()) return "-ERR Pass can't be empty!";
         if (!State.equals("PassAuth")) return "-Err Not in right State!";
 
-        EMailAccount a = Server.MailAccounts.stream().filter(e -> e.getUsername().equals(User)).findAny().get();
-        if (!a.equals(null) && a.getPassword().equals(Password)) {
+        //EMailAccount a = Server.MailAccounts.stream().filter(e -> e.getUsername().equals(User)).findAny().get();
+        EMailAccount a=null;
+        for( EMailAccount acc : Server.MailAccounts) {
+            System.out.println(acc.getUsername() +" + "+acc.getPassword());
+            if (acc.getUsername().equals(User)) {
+                System.out.println("FOUND USER");a=acc;break;}
+        }
+        if ((a!=null) && a.getPassword().equals(Password)) {
             if (a.isLocked()) {
                 result = "-ERR " + User + " is already Locked!";
                 State = "Begin";
@@ -271,6 +279,7 @@ public class RequestHandler implements Runnable {
             }
 
         } else {
+            System.out.println("P: "+a.getPassword());
             result = "-ERR Password not valid";
         }
         return result;
@@ -287,7 +296,9 @@ public class RequestHandler implements Runnable {
     }
 
     private String getMailCountAndSize() {
-        File folder = new File("");
+        System.out.println(System.getProperty("user.dir")+"\\Mails\\");
+        File folder = new File(System.getProperty("user.dir")+"\\Mails\\");
+        if (folder.listFiles()==null) return "0 0";
         List<File> listOfFiles = new ArrayList<File>(Arrays.asList(folder.listFiles()));
 
         int count = 0;
@@ -306,8 +317,9 @@ public class RequestHandler implements Runnable {
         String result = null;
         if (!State.equals("Transaction")) return "-ERR Authentificate first!";
 
-        if (input.isEmpty()) {
-            File folder = new File("");
+        if (input==null || input.isEmpty()) {
+            File folder = new File(System.getProperty("user.dir")+"\\Mails\\");
+            if (folder.listFiles()==null) return "+OK 0";
             List<File> listOfFiles = new ArrayList<File>(Arrays.asList(folder.listFiles()));
 
             int count = 0;
@@ -316,7 +328,7 @@ public class RequestHandler implements Runnable {
 
             for (File F : listOfFiles) {
                 if (F.getName().startsWith(User)) {
-                    String current = F.getName().substring(User.length());
+                    String current = F.getName().substring(User.length()).replace(".txt","");
                     current += " " + F.length();
                     resultSet.add(current);
                 }

@@ -2,6 +2,7 @@ package Server;
 
 import utils.EMailAccount;
 
+import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
@@ -40,7 +41,16 @@ public class Server implements Runnable {
 
     public void startServer() {
         // Loading up all Accounts
-        loadAccounts();
+        try {
+            loadAccounts();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        System.out.println("ACCOUNTS: ");
+
+        for (EMailAccount acc :MailAccounts) {
+            System.out.println(acc.getUsername());
+        }
 
         while (running) {
             Socket socket = null;
@@ -90,15 +100,19 @@ public class Server implements Runnable {
         startServer();
     }
 
-    private void loadAccounts() {
+    private void loadAccounts() throws IOException{
         try {
-            Scanner in = new Scanner(new FileReader("filename.txt"));
-            while (in.hasNext()) {
-                String[] res = in.next().split("|");
+            BufferedReader in = new BufferedReader(new FileReader(AccountFile));
+            String c = in.readLine();
+            while (c!=null) {
+                System.out.println(".> "+c);
+                String[] res = c.split("\\|");
+                System.out.println(res[0]);
                 EMailAccount acc = new EMailAccount();
                 acc.setUsername(res[0]);
                 acc.setPassword(res[1]);
                 MailAccounts.add(acc);
+                c= in.readLine();
             }
             in.close();
         } catch (FileNotFoundException e) {
