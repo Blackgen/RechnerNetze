@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -77,6 +78,16 @@ public class Server implements Runnable {
                 isWaitingForClient = false;
             }
             // Check if Clients are still alive, still alive, still alive..
+
+//            Iterator<RequestHandler> iter = ClientList.iterator();
+//
+//            while(iter.hasNext()) {
+//                RequestHandler requestHandler = iter.next();
+//                if (!instance.isRunning()) {
+//                    ClientList.remove(instance);
+//                    System.out.println("REMOVED CLIENT");
+//                }
+//            }
 
             if (ClientList.size() > 0) {
                 for (RequestHandler instance : ClientList) {
