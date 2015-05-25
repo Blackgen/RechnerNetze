@@ -409,7 +409,7 @@ public class RequestHandler implements Runnable {
             File w = new File(MailDropPath+User + f + ".txt");
             r |= w.delete();
         }
-        result = r ? "-ERR Delete not sucessful!" : "+OK";
+        result = r ? "-ERR Delete not sucessful!" : "+OK ";
         return result;
     }
 }
