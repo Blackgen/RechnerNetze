@@ -9,6 +9,7 @@ import java.net.Socket;
  * Created by JanDennis on 13.05.2015.
  */
 public class Client implements Runnable {
+    private static final class Lock { }
 
     private String myColor = "\u001B[34m"; // BLUE
     private String host;
@@ -32,27 +33,33 @@ public class Client implements Runnable {
 
     public void run() {
         write("Client started.");
+        while (!shouldStop) {
+            write("Activate");
         try {
             connect();
         } catch (IOException e) {
             e.printStackTrace();
         }
-        while (!shouldStop) {
+
+
             int mailCount = checkMails();
-            System.out.println("MailCount = " + mailCount);
+            write("MailCount = " + mailCount);
             while (mailCount > 0) {
                 getMails(mailCount);
                 mailCount--;
             }
             //shouldStop = true;
             quit();
-//            try {
-////                quit();
-//                shouldStop = true;
-//                wait(5000);
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
+
+            try {
+//                quit();
+                //shouldStop = true;
+                write("Sleepmode activate");
+                Thread.sleep(5000);
+                write("Where you are?");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -89,29 +96,35 @@ public class Client implements Runnable {
         String result = null;
         String backslashRN = "\r\n";
         try {
+            write("Send LIST");
             writer.write("LIST" + ENDE);
             writer.flush();
             result = readText(backslashRN + "." + backslashRN);
+            write("[ChkMail] Got: "+result);
         } catch (IOException e) {
             e.printStackTrace();
         }
 
         //Integer.parseInt(result.substring(0,result.indexOf("\n")).replace("+OK",""));
-        System.out.println("Result : " + result);
-        System.out.println("< "+result.substring(0, result.indexOf("\n")));
-        System.out.println("> "+result.substring(0, result.indexOf("\n")-1).replace("+OK ", "")+" <");
+        write("Result : " + result);
+        write("< " + result.substring(0, result.indexOf("\n")));
+        write("> " + result.substring(0, result.indexOf("\n")-1).replace("+OK ", "")+" <");
         //return Integer.parseInt(result.substring(5, result.indexOf(' ', 5)));
         return Integer.parseInt(result.substring(0, result.indexOf("\n")-1).replace("+OK ", ""));
     }
 
     public void getMails(int number) {
-        System.out.println("HUHU get mails " + number);
+        write("Send: RETR " + number);
         String message = null;
         String retrEnding = "\r\n.\r\n";
         try {
             writer.write("RETR " + number + ENDE);
             writer.flush();
             message = readText(retrEnding);
+            write("[getMail] Got: "+message);
+            message=message.substring(message.indexOf("\n"));
+            message=message.replace("\n.\n","");
+            message=message.replace("\r\n.\r\n","");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -136,8 +149,10 @@ public class Client implements Runnable {
 
     private void quit() {
         try {
-            writer.write("QUIT ");
+            writer.write("QUIT "+ENDE);
             writer.flush();
+            readTextAndStartsWithOK();
+            socket.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -198,11 +213,11 @@ public class Client implements Runnable {
             } catch (IOException e) {
                 // e.printStackTrace();
             }
-            System.out.println("Gimme dat Buffer : " + buffer);
+            //write("Gimme dat Buffer : " + buffer);
         }
 
         if (!buffer.startsWith(OK)) {
-            System.out.println("Buffer : " + buffer);
+            write("Buffer : " + buffer);
             throw new RuntimeException("Kein +OK am Anfang vorhanden!");
         }
         return buffer;

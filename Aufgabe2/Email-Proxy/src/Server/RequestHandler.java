@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 
 public class RequestHandler implements Runnable {
 
+    public static final String REGEX = "(?<KEYWORD>USER|PASS|STAT|LIST|RETR|DELE|NOOP|RSET|QUIT)( )?( (?<STRING>[\\x1F-\\x7F]+))?(\r)?\n";
     String State = "UserAuth";
     private Socket socket;
     private BufferedReader reader;
@@ -107,7 +108,7 @@ public class RequestHandler implements Runnable {
 
         // REGEX Keyword + Any Ascii > 31 (Newline & Stuff)
         final Pattern REGEX = Pattern
-                .compile("(?<KEYWORD>USER|PASS|STAT|LIST|RETR|DELE|NOOP|RSET|QUIT)( (?<STRING>[\\x1F-\\x7F]+))?(\r)?\n");
+                .compile(RequestHandler.REGEX);
 
         Matcher matcher = REGEX.matcher(inputText);
 
@@ -149,6 +150,8 @@ public class RequestHandler implements Runnable {
                 break;
             case "QUIT":
                 result = deleteMails();
+                Account.setLocked(false);
+                running=false;
                 break;
         }
 
@@ -408,6 +411,7 @@ public class RequestHandler implements Runnable {
 
             File w = new File(MailDropPath+User + f + ".txt");
             r |= w.delete();
+            System.out.println("Delete "+MailDropPath+User + f + ".txt");
         }
         result = r ? "-ERR Delete not sucessful!" : "+OK ";
         return result;
