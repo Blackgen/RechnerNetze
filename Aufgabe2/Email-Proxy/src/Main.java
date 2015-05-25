@@ -50,6 +50,16 @@ public class Main {
         }
         if (result.equals(null)) System.exit(0);
 
+        if (result.equals("s") || result.equals("b")) {
+            write("Setting up Server.");
+            setupServer();
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
         if (result.equals("c") || result.equals("b")) {
             write("How many Clients should I set up? ");
             int count = Integer.parseInt(util.readUserInput());
@@ -59,10 +69,7 @@ public class Main {
             }
         }
 
-        if (result.equals("s") || result.equals("b")) {
-            write("Setting up Server.");
-            setupServer();
-        }
+
         for (int i = 0; i < Clientlist.size(); i++) {
             new Thread(Clientlist.get(i)).start();
         }

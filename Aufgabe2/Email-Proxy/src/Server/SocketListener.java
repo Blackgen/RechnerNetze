@@ -9,14 +9,14 @@ import java.net.Socket;
 public class SocketListener implements Runnable {
     ServerSocket mother;
 
-    public SocketListener(ServerSocket s) {
-        mother = s;
+    public SocketListener() {
     }
 
     @Override
     public void run() {
         try {
-            Socket Client = mother.accept();
+            Socket Client = Server.serverSocket.accept();
+            System.out.println("[Listener] New Client!");
             Server.newCLient = Client;
             Server.newClientConnected = true;
         } catch (Exception e) {

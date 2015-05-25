@@ -9,8 +9,9 @@ import java.net.Socket;
  * Created by JanDennis on 13.05.2015.
  */
 public class Client implements Runnable {
-    private static final class Lock { }
-
+    private static final String OK = "+OK";
+    private final String ENDE = "\r\n";
+    public Boolean shouldStop = false;
     private String myColor = "\u001B[34m"; // BLUE
     private String host;
     private int port;
@@ -19,10 +20,6 @@ public class Client implements Runnable {
     private Socket socket;
     private BufferedReader reader;
     private BufferedWriter writer;
-    public Boolean shouldStop = false;
-    private static final String OK = "+OK";
-    private final String ENDE = "\r\n";
-
     public Client(String host, int port, String user, String pass, String color) {
         this.host = host;
         this.port = port;
@@ -35,11 +32,11 @@ public class Client implements Runnable {
         write("Client started.");
         while (!shouldStop) {
             write("Activate");
-        try {
-            connect();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+            try {
+                connect();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
 
 
             int mailCount = checkMails();
@@ -100,7 +97,7 @@ public class Client implements Runnable {
             writer.write("LIST" + ENDE);
             writer.flush();
             result = readText(backslashRN + "." + backslashRN);
-            write("[ChkMail] Got: "+result);
+            write("[ChkMail] Got: " + result);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -108,9 +105,9 @@ public class Client implements Runnable {
         //Integer.parseInt(result.substring(0,result.indexOf("\n")).replace("+OK",""));
         write("Result : " + result);
         write("< " + result.substring(0, result.indexOf("\n")));
-        write("> " + result.substring(0, result.indexOf("\n")-1).replace("+OK ", "")+" <");
+        write("> " + result.substring(0, result.indexOf("\n") - 1).replace("+OK ", "") + " <");
         //return Integer.parseInt(result.substring(5, result.indexOf(' ', 5)));
-        return Integer.parseInt(result.substring(0, result.indexOf("\n")-1).replace("+OK ", ""));
+        return Integer.parseInt(result.substring(0, result.indexOf("\n") - 1).replace("+OK ", ""));
     }
 
     public void getMails(int number) {
@@ -121,15 +118,15 @@ public class Client implements Runnable {
             writer.write("RETR " + number + ENDE);
             writer.flush();
             message = readText(retrEnding);
-            write("[getMail] Got: "+message);
-            message=message.substring(message.indexOf("\n"));
-            message=message.replace("\n.\n","");
-            message=message.replace("\r\n.\r\n","");
+            write("[getMail] Got: " + message);
+            message = message.substring(message.indexOf("\n"));
+            message = message.replace("\n.\n", "");
+            message = message.replace("\r\n.\r\n", "");
         } catch (IOException e) {
             e.printStackTrace();
         }
         try {
-            File mail = new File(System.getProperty("user.dir") + "\\Mails\\", username + number + ".txt");
+            File mail = new File(System.getProperty("user.dir") + "\\Mails1\\", username + number + ".txt");
             FileWriter fstream = new FileWriter(mail);
             fstream.write(message);
             fstream.close();
@@ -149,7 +146,7 @@ public class Client implements Runnable {
 
     private void quit() {
         try {
-            writer.write("QUIT "+ENDE);
+            writer.write("QUIT " + ENDE);
             writer.flush();
             readTextAndStartsWithOK();
             socket.close();
@@ -221,6 +218,9 @@ public class Client implements Runnable {
             throw new RuntimeException("Kein +OK am Anfang vorhanden!");
         }
         return buffer;
+    }
+
+    private static final class Lock {
     }
 }
 

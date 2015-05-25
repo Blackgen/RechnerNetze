@@ -10,7 +10,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Scanner;
 
 /**
  * Created by Paddy-Gaming on 24.04.2015.
@@ -20,10 +19,11 @@ public class Server implements Runnable {
     public static Boolean newClientConnected = false;
     public static Socket newCLient;
     public static List<EMailAccount> MailAccounts = new ArrayList();
+    public static ServerSocket serverSocket;
     private final int maxClientConnections = 3;
     public Boolean running = true;
+    public Boolean isWaitingForClient = false;
     List<RequestHandler> ClientList = null;
-    private ServerSocket serverSocket;
     private int serverPort;
     private ShutdownInterface shutdownHandler;
     private String AccountFile = "Accounts.txt";
@@ -48,35 +48,45 @@ public class Server implements Runnable {
         }
         System.out.println("ACCOUNTS: ");
 
-        for (EMailAccount acc :MailAccounts) {
+        for (EMailAccount acc : MailAccounts) {
             System.out.println(acc.getUsername());
         }
 
         while (running) {
-            Socket socket = null;
-            try {
-                socket = serverSocket.accept();
+
+            if (!isWaitingForClient) {
+                System.out.println("Start Listener");
+                new SocketListener().run();
+                isWaitingForClient = true;
+            } else if (newClientConnected) {
+                System.out.println("[Server] New Client!");
                 if (ClientList.size() < maxClientConnections) {
-                    RequestHandler requestHandler = new RequestHandler(socket, shutdownHandler);
+                    System.out.println("[Server] Start Handler");
+                    RequestHandler requestHandler = new RequestHandler(newCLient, shutdownHandler);
                     Thread n = new Thread(requestHandler);
                     ClientList.add(requestHandler);
                     n.start();
-                }
-
-
-                // Check if Clients are still alive, still alive, still alive..
-                if (ClientList.size() > 0) {
-                    for (RequestHandler instance : ClientList) {
-                        if (!instance.isRunning()) {
-                            ClientList.remove(instance);
-                            System.out.println("REMOVED CLIENT");
-                        }
+                } else {
+                    try {
+                        System.out.println("[Server] No free Slots, closing");
+                        newCLient.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
                 }
-
-            } catch (IOException e) {
-                // e.printStackTrace();
+                isWaitingForClient = false;
             }
+            // Check if Clients are still alive, still alive, still alive..
+
+            if (ClientList.size() > 0) {
+                for (RequestHandler instance : ClientList) {
+                    if (!instance.isRunning()) {
+                        ClientList.remove(instance);
+                        System.out.println("REMOVED CLIENT");
+                    }
+                }
+            }
+
         }
         System.out.println("Finish");
         try {
@@ -100,19 +110,19 @@ public class Server implements Runnable {
         startServer();
     }
 
-    private void loadAccounts() throws IOException{
+    private void loadAccounts() throws IOException {
         try {
             BufferedReader in = new BufferedReader(new FileReader(AccountFile));
             String c = in.readLine();
-            while (c!=null) {
-                System.out.println(".> "+c);
+            while (c != null) {
+                System.out.println(".> " + c);
                 String[] res = c.split("\\|");
                 System.out.println(res[0]);
                 EMailAccount acc = new EMailAccount();
                 acc.setUsername(res[0]);
                 acc.setPassword(res[1]);
                 MailAccounts.add(acc);
-                c= in.readLine();
+                c = in.readLine();
             }
             in.close();
         } catch (FileNotFoundException e) {
