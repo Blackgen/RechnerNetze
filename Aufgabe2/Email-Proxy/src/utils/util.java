@@ -17,7 +17,9 @@ public class util {
     public static final String ANSI_PURPLE = "\u001B[35m";
     public static final String ANSI_CYAN = "\u001B[36m";
     public static final String ANSI_WHITE = "\u001B[37m";
+    public static String[] colors = {"\u001B[35m","\u001B[33m","\u001B[34m","\u001B[36m","\u001B[32m"};
     static BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+
 
     private util() {
     }

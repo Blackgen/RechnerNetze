@@ -63,7 +63,7 @@ public class Server implements Runnable {
                 System.out.println("[Server] New Client!");
                 if (ClientList.size() < maxClientConnections) {
                     System.out.println("[Server] Start Handler");
-                    RequestHandler requestHandler = new RequestHandler(newCLient, shutdownHandler);
+                    RequestHandler requestHandler = new RequestHandler(newCLient, shutdownHandler,ClientList.size());
                     Thread n = new Thread(requestHandler);
                     ClientList.add(requestHandler);
                     n.start();
@@ -79,24 +79,24 @@ public class Server implements Runnable {
             }
             // Check if Clients are still alive, still alive, still alive..
 
-//            Iterator<RequestHandler> iter = ClientList.iterator();
-//
-//            while(iter.hasNext()) {
-//                RequestHandler requestHandler = iter.next();
-//                if (!instance.isRunning()) {
-//                    ClientList.remove(instance);
-//                    System.out.println("REMOVED CLIENT");
-//                }
-//            }
+            Iterator<RequestHandler> iter = ClientList.iterator();
 
-            if (ClientList.size() > 0) {
-                for (RequestHandler instance : ClientList) {
-                    if (!instance.isRunning()) {
-                        ClientList.remove(instance);
-                        System.out.println("REMOVED CLIENT");
-                    }
+            while(iter.hasNext()) {
+                RequestHandler instance = iter.next();
+                if (!instance.isRunning()) {
+                    iter.remove();
+                    System.out.println("REMOVED CLIENT");
                 }
             }
+
+//            if (ClientList.size() > 0) {
+//                for (RequestHandler instance : ClientList) {
+//                    if (!instance.isRunning()) {
+//                        ClientList.remove(instance);
+//                        System.out.println("REMOVED CLIENT");
+//                    }
+//                }
+//            }
 
         }
         System.out.println("Finish");

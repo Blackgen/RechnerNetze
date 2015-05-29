@@ -52,7 +52,7 @@ public class Client implements Runnable {
 //                quit();
                 //shouldStop = true;
                 write("Sleepmode activate");
-                Thread.sleep(5000);
+                Thread.sleep(30000);
                 write("Where you are?");
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -107,7 +107,8 @@ public class Client implements Runnable {
         write("< " + result.substring(0, result.indexOf("\n")));
         write("> " + result.substring(0, result.indexOf("\n") - 1).replace("+OK ", "") + " <");
         //return Integer.parseInt(result.substring(5, result.indexOf(' ', 5)));
-        return Integer.parseInt(result.substring(0, result.indexOf("\n") - 1).replace("+OK ", ""));
+        return Integer.parseInt(result.replace("+OK ","").substring(0,result.indexOf(" ")-2));
+        //return Integer.parseInt(result.substring(0, result.indexOf("\n") - 1).replace("+OK ", ""));
     }
 
     public void getMails(int number) {
@@ -126,7 +127,12 @@ public class Client implements Runnable {
             e.printStackTrace();
         }
         try {
-            File mail = new File(System.getProperty("user.dir") + "\\Mails1\\", username + number + ".txt");
+            int count=number;
+            File mail = new File(System.getProperty("user.dir") + File.separator+"Mails"+File.separator, username + number + ".txt");
+            while(mail.exists()) {
+                count += 1;
+                mail = new File(System.getProperty("user.dir") + File.separator+"Mails"+File.separator, username + count + ".txt");
+            }
             FileWriter fstream = new FileWriter(mail);
             fstream.write(message);
             fstream.close();

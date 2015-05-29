@@ -11,6 +11,8 @@ import java.util.List;
  * Created by JanDennis on 13.05.2015.
  */
 public class Main {
+    // Blau         Cyan           Green        Purple      yellow
+    private String[] colors = {"\u001B[34m","\u001B[36m","\u001B[32m","\u001B[35m","\u001B[33m"};
     BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
     private String myColor = "\u001B[32m"; // GREEN
     private List<Client> Clientlist = new ArrayList<>();
@@ -65,7 +67,7 @@ public class Main {
             int count = Integer.parseInt(util.readUserInput());
             for (int i = 0; i < count; i++) {
                 write("\n" + i + ". Client: ");
-                setupClient();
+                setupClient(i);
             }
         }
 
@@ -90,7 +92,7 @@ public class Main {
 
     }
 
-    private void setupClient() {
+    private void setupClient(int i) {
         String host, user, pass;
         int port;
         write("Hostname: ");
@@ -101,7 +103,7 @@ public class Main {
         user = util.readUserInput();
         write("Passwort: ");
         pass = util.readUserInput();
-        Client c = new Client(host, port, user, pass, "\u001B[36m");
+        Client c = new Client(host, port, user, pass, colors[i%colors.length]);
         Clientlist.add(c);
     }
 }

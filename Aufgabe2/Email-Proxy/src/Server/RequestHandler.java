@@ -1,6 +1,7 @@
 package Server;
 
 import utils.EMailAccount;
+import utils.util;
 
 import java.io.*;
 import java.net.Socket;
@@ -12,9 +13,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class RequestHandler implements Runnable {
+    private String myColor = "\u001B[30m";
 
-    public static final String REGEX = "(?<KEYWORD>USER|PASS|STAT|LIST|RETR|DELE|NOOP|RSET|QUIT)( )?( (?<STRING>[\\x1F-\\x7F]+))?(\r)?\n";
-    private final String MailDropPath = System.getProperty("user.dir") + "\\Mails\\";
+    public static final String REGEX = "(?<KEYWORD>USER|PASS|STAT|LIST|RETR|DELE|NOOP|RSET|QUIT)( )*( (?<STRING>[\\x21-\\x7F]+))?(\r)?\n";
+    private final String MailDropPath = System.getProperty("user.dir") + File.separator+"Mails"+File.separator;
     String State = "UserAuth";
     private Socket socket;
     private BufferedReader reader;
@@ -26,27 +28,30 @@ public class RequestHandler implements Runnable {
     private EMailAccount Account;
     private List<Integer> deleteList = new ArrayList<>();
 
-    public RequestHandler(Socket socket, ShutdownInterface shutdownHandler) {
+    public RequestHandler(Socket socket, ShutdownInterface shutdownHandler, int i) {
+        myColor=util.colors[i];
         this.socket = socket;
         this.shutdownHandler = shutdownHandler;
         initialize(socket);
+
     }
 
     @Override
     public void run() {
-        System.out.println("Thread starts");
+        write("Thread starts");
         while (running) {
             String clientRequest = getRequestFromClient();
-            System.out.println("clientrequest = " + clientRequest);
+            write("clientrequest = " + clientRequest);
             if (clientRequest != null) {
 
                 String parsedRequest = parseString(clientRequest);
-                System.out.println("Answer for Client : " + parsedRequest);
+                write("Answer for Client : " + parsedRequest);
                 sendAnswerToClient(parsedRequest);
                 if (!running) {
                     try {
-                        System.out.println("Closing");
-                        socket.close();
+                        write("Closing");
+                        closeAll();
+//                        socket.close();
                     } catch (Exception e) {
                         // e.printStackTrace();
                     }
@@ -56,7 +61,7 @@ public class RequestHandler implements Runnable {
             }
         }
         closeAll();
-        System.out.println("FIN REQUESTHANDLER");
+        write("FIN REQUESTHANDLER");
     }
 
     public boolean isRunning() {
@@ -75,8 +80,8 @@ public class RequestHandler implements Runnable {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        System.out.println("Client connection established!");
-        sendAnswerToClient("+OK");
+        sendAnswerToClient("+OK POP3 Server H4xme-0.1 ready!");
+        write("Client connection established!");
     }
 
     // Bekommt eine Anfrage vom Client
@@ -84,9 +89,9 @@ public class RequestHandler implements Runnable {
         String clientMessage = null;
         try {
             clientMessage = readMessage();
-            System.out.println("Message from Client is: " + clientMessage);
+            write("Message from Client is: " + clientMessage);
         } catch (IOException e) {
-            System.out.println("ERROR getReq");
+            write("ERROR getReq");
             //e.printStackTrace();
         }
         return clientMessage;
@@ -95,7 +100,7 @@ public class RequestHandler implements Runnable {
     // Sendet eine Antwort zum Client zurueck
     public void sendAnswerToClient(String answer) {
         try {
-            System.out.println("Send: " + answer);
+            write("Send: " + answer);
             writer.write(answer + "\r\n");
             writer.flush();
         } catch (IOException e) {
@@ -149,9 +154,11 @@ public class RequestHandler implements Runnable {
                 result = "+OK";
                 break;
             case "QUIT":
+                if (!State.equals("Transaction")) result="-ERR Authentificate first";
+                else {
                 result = deleteMails();
                 Account.setLocked(false);
-                running = false;
+                running = false;}
                 break;
         }
 
@@ -166,7 +173,7 @@ public class RequestHandler implements Runnable {
         int c = 0;
 
         while (!buffer.endsWith("\n") && ((c = reader.read()) != -1)) {
-            //System.out.println(count + " | " + buffer);
+            //write(count + " | " + buffer);
             buffer += (char) c;
             count += 1;
 
@@ -189,7 +196,7 @@ public class RequestHandler implements Runnable {
             }
 
         }
-        System.out.println(">" + buffer);
+        write(">" + buffer);
         return buffer;
     }
 
@@ -201,14 +208,14 @@ public class RequestHandler implements Runnable {
                 long timeout = 30000;
                 long timeout2;
                 while ((timeout2 = timeout - (System.currentTimeMillis() - lastExecution)) > 0) {
-                    System.out.println(timeout);
+                    write(""+timeout);
                     try {
                         Thread.sleep(timeout2);
                     } catch (InterruptedException e) {
-                        System.out.println("TESTFEHLER");
+                        write("TESTFEHLER");
                     }
                 }
-                System.out.println("CloseSocket");
+                write("CloseSocket");
                 running = false;
                 try {
                     socket.close();
@@ -238,11 +245,12 @@ public class RequestHandler implements Runnable {
 
     public void closeAll() {
         try {
+            socket.getOutputStream().close();
             socket.close();
             reader.close();
             writer.close();
         } catch (Exception e) {
-            System.out.println("ERROR closeAll");
+            write("ERROR closeAll");
             e.printStackTrace();
         }
 
@@ -270,9 +278,9 @@ public class RequestHandler implements Runnable {
         //EMailAccount a = Server.MailAccounts.stream().filter(e -> e.getUsername().equals(User)).findAny().get();
         EMailAccount a = null;
         for (EMailAccount acc : Server.MailAccounts) {
-            System.out.println(acc.getUsername() + " + " + acc.getPassword());
+            write(acc.getUsername() + " + " + acc.getPassword());
             if (acc.getUsername().equals(User)) {
-                System.out.println("FOUND USER");
+                write("FOUND USER");
                 a = acc;
                 break;
             }
@@ -288,7 +296,7 @@ public class RequestHandler implements Runnable {
             }
 
         } else {
-            System.out.println("P: " + a.getPassword());
+            write("P: " + a.getPassword());
             result = "-ERR Password not valid";
         }
         return result;
@@ -305,8 +313,8 @@ public class RequestHandler implements Runnable {
     }
 
     private String getMailCountAndSize() {
-        System.out.println(System.getProperty("user.dir") + "\\Mails\\");
-        File folder = new File(System.getProperty("user.dir") + "\\Mails\\");
+        write(System.getProperty("user.dir") + File.separator+"Mails"+File.separator);
+        File folder = new File(System.getProperty("user.dir") + File.separator+"Mails"+File.separator);
         if (folder.listFiles() == null) return "0 0";
         List<File> listOfFiles = new ArrayList<File>(Arrays.asList(folder.listFiles()));
 
@@ -351,7 +359,8 @@ public class RequestHandler implements Runnable {
 
             result = ".";
         } else {
-            File wanted = new File(User + input + ".txt");
+            if (Integer.parseInt(input)<0) return "-ERR ID must be positive!";
+            File wanted = new File(MailDropPath+User + input + ".txt");
             if (!wanted.exists()) result = "-ERR Mail not found!";
             else result = input + " " + wanted.length();
         }
@@ -364,17 +373,18 @@ public class RequestHandler implements Runnable {
 
         if (!State.equals("Transaction")) return "-ERR Wrong State!";
         if (input.isEmpty()) return "-ERR Please specify an ID!";
+        if (Integer.parseInt(input)<0) return "-ERR ID must be positive!";
 
         File wanted = new File(MailDropPath + User + input + ".txt");
-        System.out.println(">RETR " + MailDropPath + User + input + ".txt");
+        write(">RETR " + MailDropPath + User + input + ".txt");
 
         if (wanted.exists()) {
             sendAnswerToClient("+OK " + wanted.length());
 
             try {
                 Scanner in = new Scanner(new FileReader(wanted));
-                while (in.hasNext()) {
-                    sendAnswerToClient(in.next());
+                while (in.hasNextLine()) {
+                    sendAnswerToClient(in.nextLine());
                 }
                 in.close();
             } catch (FileNotFoundException e) {
@@ -393,6 +403,7 @@ public class RequestHandler implements Runnable {
         String result;
         if (!State.equals("Transaction")) return "-ERR Wrong State";
         if (input.isEmpty()) return "-ERR please select a messageid";
+        if (Integer.parseInt(input)<0) return "-ERR ID must be positive!";
 
         int i = Integer.parseInt(input);
 
@@ -416,12 +427,13 @@ public class RequestHandler implements Runnable {
 
             File w = new File(MailDropPath + User + f + ".txt");
             r &= w.delete();
-            System.out.println("Delete " + MailDropPath + User + f + ".txt " + r);
+            write("Delete " + MailDropPath + User + f + ".txt " + r);
         }
         result = r ? "+OK " : "-ERR Delete not sucessful!";
         return result;
     }
+
+    private void write(String text) {
+        util.write(text, myColor);
+    }
 }
-
-
-
