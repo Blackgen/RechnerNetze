@@ -9,245 +9,333 @@ package filecopy;
 import java.io.*;
 import java.net.*;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.LinkedList;
+import java.util.List;
 
 public class FileCopyClient extends Thread {
 
-  // -------- Constants
-  public final static boolean TEST_OUTPUT_MODE = false;
+    // -------- Constants
+    public final static boolean TEST_OUTPUT_MODE = true;
 
-  public final int SERVER_PORT = 23000;
+    public final int SERVER_PORT = 23000;
 
-  public final int UDP_PACKET_SIZE = 1008;
+    public final int UDP_PACKET_SIZE = 1008;
 
-  public final int DATA_LENGTH = UDP_PACKET_SIZE-64;
+    public final int DATA_LENGTH = UDP_PACKET_SIZE - 64;
 
-  public final static long DELAY = 10; // Propagation delay in ms
+    public final static long DELAY = 10; // Propagation delay in ms
 
-  // -------- Public parms
-  public String servername;
+    // -------- Public parms
+    public String servername;
 
-  public String sourcePath;
+    public int serverport;
 
-  public String destPath;
+    public String sourcePath;
 
-  public int windowSize;
+    public String destPath;
 
-  public long serverErrorRate;
+    public int windowSize;
 
-  public InetAddress server;
+    public long serverErrorRate;
 
-  public DatagramSocket clientSocket;
+    public InetAddress server;
 
-  // -------- Variables
-  // current default timeout in nanoseconds
-  private long timeoutValue = 100000000L;
+    public DatagramSocket clientSocket;
 
-  // ... ToDo
-  private LinkedList<FCpacket> sendBuffer;
-  private LinkedList<Long> ackList=new LinkedList<>();
-  private int nextPacketNum;
+    public long jitter;
 
+    public long expRTT;
 
-  // Constructor
-  public FileCopyClient(String serverArg, String sourcePathArg,
-    String destPathArg, String windowSizeArg, String errorRateArg) throws IOException{
-    servername = serverArg;
-    sourcePath = sourcePathArg;
-    destPath = destPathArg;
-    windowSize = Integer.parseInt(windowSizeArg);
-    serverErrorRate = Long.parseLong(errorRateArg);
-    sendBuffer = new LinkedList<FCpacket>();
-    clientSocket = new DatagramSocket();
-    server = InetAddress.getByName(servername);
-  }
+    public long rTT;
 
-  public void runFileCopyClient() {
+    public long averageRTT;
 
-    // ToDo!!
-    FCpacket initPacket = makeControlPacket();
+    // -------- Variables
+    // current default timeout in nanoseconds
+    private long timeoutValue = 100000000L;
 
-    sendBuffer.add(initPacket);
-    startTimer(initPacket);
-    nextPacketNum++;
-
-    while(!sendBuffer.isEmpty()) {
+    // ... ToDo
+    private LinkedList<FCpacket> sendBuffer;
+    private LinkedList<Long> ackList = new LinkedList<>();
+    private int nextPacketNum;
 
 
-      if (sendBuffer.size() < windowSize) {
-        FCpacket fHJSB = createNewPacket(DATA_LENGTH);
-        sendBuffer.add(fHJSB);
+    // Constructor
+    public FileCopyClient(String serverArg, String serverPortArg, String sourcePathArg,
+                          String destPathArg, String windowSizeArg, String errorRateArg) throws IOException {
+        servername = serverArg;
+        serverport = Integer.parseInt(serverArg);
+        sourcePath = sourcePathArg;
+        destPath = destPathArg;
+        windowSize = Integer.parseInt(windowSizeArg);
+        serverErrorRate = Long.parseLong(errorRateArg);
+        sendBuffer = new LinkedList<FCpacket>();
+        server = InetAddress.getByName(servername);
+    }
 
-        // Sende dingsbums
-        FCpacket pack = sendBuffer.stream().filter(x -> x.getSeqNum() == nextSeqNum()).findFirst().get();
-        sendPacket(pack);
-        startTimer(pack);
-        nextPacketNum++;
-      }
-
-
-      // Ack angekommen
-      if (ackList.size() > 0) {
-        for (long numb : ackList) {
-          FCpacket current = sendBuffer.stream().filter(x -> x.getSeqNum() == numb).findFirst().get();
-          current.setValidACK(true);
-          cancelTimer(current);
-          ackList.remove(numb);
-          // TODO Timer neu berechnen
-          if (current.getSeqNum() == sendbase()) {
-            for (FCpacket packet : sendBuffer) {
-              if (packet.isValidACK()) {
-                sendBuffer.remove(packet);
-              } else break;
-            }
-          }
+    public void runFileCopyClient() {
+        try {
+            clientEinrichten();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-      }
+
+        // ToDo!!
+        FCpacket initPacket = makeControlPacket();
+
+        sendBuffer.add(initPacket);
+
+
+        sendBuffer = readFileToPackets(sourcePath, DATA_LENGTH);
+
+        new receiveThread().start();
+
+        while() // Sende alle Pakete
+
+
+//            if (sendBuffer.size() < windowSize) {
+//                testOut("New Packet");
+//
+//                // Sende Bumsdings
+//                FCpacket pack = sendBuffer.stream().filter(x -> x.getSeqNum() == nextSeqNum()).findFirst().get();
+//                sendPacket(pack);
+//                startTimer(pack);
+//                nextPacketNum++;
+//            }
+
+
+        // Ack angekommen
+        if (ackList.size() > 0) {
+            testOut("Cleaning AckList");
+            for (long numb : ackList) {
+                FCpacket current = sendBuffer.stream().filter(x -> x.getSeqNum() == numb).findFirst().get();
+                cancelTimer(current);
+                long duration = System.nanoTime() - current.getTimestamp();
+                computeTimeoutValue(duration);
+                averageRTT += duration;
+                current.setValidACK(true);
+                testOut("Remove: " + numb);
+                ackList.remove(numb);
+                // TODO Timer neu berechnen
+                if (current.getSeqNum() == sendbase()) {
+                    for (FCpacket packet : sendBuffer) {
+                        if (packet.isValidACK()) {
+                            sendBuffer.remove(packet);
+                            testOut("------------------- TEST loeschen -------------------" + sendBuffer);
+                        } else break;
+                    }
+                }
+            }
+
+        }
     }
 
-
-
-
-  }
-
-  /**
-  *
-  * Timer Operations
-  */
-  public void startTimer(FCpacket packet) {
+    /**
+     * Timer Operations
+     */
+    public void startTimer(FCpacket packet) {
     /* Create, save and start timer for the given FCpacket */
-    FC_Timer timer = new FC_Timer(timeoutValue, this, packet.getSeqNum());
-    packet.setTimer(timer);
-    timer.start();
-  }
-
-  public void cancelTimer(FCpacket packet) {
-    /* Cancel timer for the given FCpacket */
-    testOut("Cancel Timer for packet" + packet.getSeqNum());
-
-    if (packet.getTimer() != null) {
-      packet.getTimer().interrupt();
+        FC_Timer timer = new FC_Timer(timeoutValue, this, packet.getSeqNum());
+        packet.setTimer(timer);
+        timer.start();
     }
-  }
 
-  /**
-   * Implementation specific task performed at timeout
-   */
-  public void timeoutTask(long seqNum) {
-    FCpacket f = sendBuffer.stream().filter(x -> x.getSeqNum()==seqNum).findFirst().get();
-    sendPacket(f);
-    startTimer(f);
-  }
+    public void cancelTimer(FCpacket packet) {
+    /* Cancel timer for the given FCpacket */
+        testOut("Cancel Timer for packet" + packet.getSeqNum());
 
+        if (packet.getTimer() != null) {
+            packet.getTimer().interrupt();
+        }
+    }
 
-  /**
-   *
-   * Computes the current timeout value (in nanoseconds)
-   */
-  public void computeTimeoutValue(long sampleRTT) {
-
-  // ToDo
-  }
+    /**
+     * Implementation specific task performed at timeout
+     */
+    public void timeoutTask(long seqNum) {
+        testOut("Timer Timeout! Num: " + seqNum);
+        FCpacket f = sendBuffer.stream().filter(x -> x.getSeqNum() == seqNum).findFirst().get();
+        sendBuffer.add(f);
+    }
 
 
-  /**
-   *
-   * Return value: FCPacket with (0 destPath;windowSize;errorRate)
-   */
-  public FCpacket makeControlPacket() {
+    /**
+     * Computes the current timeout value (in nanoseconds)
+     */
+    public void computeTimeoutValue(long sampleRTT) {
+        double x = 0.25;
+        double y = x / 2;
+
+        expRTT = (long) ((1.0 - y) * expRTT + y * rTT);
+
+        jitter = (long) ((1.0 - x) * jitter + x * Math.abs(rTT - expRTT));
+
+        setTimeoutValue(expRTT + 4 * jitter);
+    }
+
+    synchronized public long getTimeoutValue() {
+        return timeoutValue;
+    }
+
+    synchronized public void setTimeoutValue(long timeoutValue) {
+        this.timeoutValue = timeoutValue;
+    }
+
+
+    /**
+     * Return value: FCPacket with (0 destPath;windowSize;errorRate)
+     */
+    public FCpacket makeControlPacket() {
    /* Create first packet with seq num 0. Return value: FCPacket with
      (0 destPath ; windowSize ; errorRate) */
-    String sendString = destPath + ";" + windowSize + ";" + serverErrorRate;
-    byte[] sendData = null;
-    try {
-      sendData = sendString.getBytes("UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      e.printStackTrace();
-    }
-    return new FCpacket(0, sendData, sendData.length);
-  }
-
-  public void testOut(String out) {
-    if (TEST_OUTPUT_MODE) {
-      System.err.printf("%,d %s: %s\n", System.nanoTime(), Thread
-          .currentThread().getName(), out);
-    }
-  }
-
-  public static void main(String argv[]) throws Exception {
-//    FileCopyClient myClient = new FileCopyClient(argv[0], argv[1], argv[2], argv[3], argv[4]);
-    FileCopyClient myClient = new FileCopyClient("localhost", System.getProperty("user.dir")+ "\\test.txt", "text.txt", "100", "100");
-    myClient.runFileCopyClient();
-  }
-
-  private long sendbase() {
-    return sendBuffer.getFirst().getSeqNum();
-  }
-
-  private long nextSeqNum() {
-    return sendBuffer.get(nextPacketNum-1).getSeqNum();
-  }
-
-  private void sendPacket(FCpacket packetOut) {
-    DatagramPacket dataPacket = new DatagramPacket(packetOut.getSeqNumBytesAndData(),
-            packetOut.getLen()+8, server, SERVER_PORT);
-    new sendThread(dataPacket).run();
-  }
-
-  private FCpacket createNewPacket(long maxSize) {
-    int position = Math.max(0, safeLongToInt(DATA_LENGTH * (nextSeqNum() - 1)));
-    char[] buffer=new char[DATA_LENGTH];
-    FCpacket newPacket=null;
-    try {
-      FileReader fstream = new FileReader(sourcePath);
-      fstream.read(buffer,position,DATA_LENGTH);
-      newPacket = new FCpacket(nextSeqNum(),new String(buffer).getBytes("UTF-8"),buffer.length);
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    return newPacket;
-  }
-
-  public static int safeLongToInt(long l) {
-    if (l < Integer.MIN_VALUE || l > Integer.MAX_VALUE) {
-      throw new IllegalArgumentException
-              (l + " cannot be cast to int without changing its value.");
-    }
-    return (int) l;
-  }
-
-
-  private class sendThread extends Thread {
-    /* Thread for sending of one ACK-Packet with propagation delay */
-    DatagramPacket packet;
-
-    public sendThread(DatagramPacket packet) {
-      this.packet = packet;
-    }
-
-    public void run() {
-      try {
-        Thread.sleep(DELAY);
-        clientSocket.send(packet);
-      } catch (Exception e) {
-        e.printStackTrace();
-        System.err.println("Unexspected Error! " + e.toString());
-        System.exit(-1);
-      }
-    }
-  }
-
-  private class receiveThread extends Thread {
-    public void run() {
-      while (true) {
-        DatagramPacket data = null;
+        String sendString = destPath + ";" + windowSize + ";" + serverErrorRate;
+        byte[] sendData = null;
         try {
-          clientSocket.receive(data);
-          ackList.add(ByteBuffer.wrap(data.getData()).getLong());
-        } catch (IOException e) {
-          e.printStackTrace();
+            sendData = sendString.getBytes("UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
         }
-      }
+        return new FCpacket(0, sendData, sendData.length);
     }
-  }
+
+    public void testOut(String out) {
+        if (TEST_OUTPUT_MODE) {
+            System.err.printf("%,d %s: %s\n", System.nanoTime(), Thread
+                    .currentThread().getName(), out);
+        }
+    }
+
+    public static void main(String argv[]) throws Exception {
+//    FileCopyClient myClient = new FileCopyClient(argv[0], argv[1], argv[2], argv[3], argv[4]);
+        FileCopyClient myClient = new FileCopyClient("localhost", "23000", System.getProperty("user.dir") + "\\test.txt", "text.txt", "1", "1");
+        myClient.runFileCopyClient();
+    }
+
+    private long sendbase() {
+        return sendBuffer.getFirst().getSeqNum();
+    }
+
+    private long nextSeqNum() {
+        return sendBuffer.get(nextPacketNum - 1).getSeqNum();
+    }
+
+    private void sendPacket(FCpacket packetOut) {
+        DatagramPacket dataPacket = new DatagramPacket(packetOut.getSeqNumBytesAndData(),
+                packetOut.getLen() + 8, server, SERVER_PORT);
+        new sendThread(dataPacket).run();
+        startTimer(packetOut);
+    }
+
+    private LinkedList<FCpacket> readFileToPackets(String path, int packetSize) {
+        LinkedList<FCpacket> result = new LinkedList<FCpacket>();
+        File file = new File(path);
+        if (file.exists()) {
+            try {
+                RandomAccessFile fstream = new RandomAccessFile(path, "r");
+                byte[] b = new byte[(int) fstream.length()];
+                fstream.read(b);
+                int bufferSize = packetSize - 8;
+
+                for (int i = 0; i * bufferSize < fstream.length(); i++) {
+                    int newBufferSize = (i + 1) * bufferSize > fstream.length() ? (int) (fstream.length() - i * bufferSize) : bufferSize;
+                    byte[] buffer = new byte[newBufferSize];
+                    System.arraycopy(b, i * bufferSize, buffer, 0, newBufferSize);
+                    result.add(new FCpacket(i + 1, buffer, buffer.length));
+                }
+
+                fstream.close();
+            } catch (FileNotFoundException e) {
+                System.err.println("File not found : " + e.getMessage());
+                return result;
+            } catch (IOException e) {
+                System.err.println("Cannot read file : " + e.getMessage());
+            }
+
+        }
+        return result;
+    }
+
+    public static int safeLongToInt(long l) {
+        if (l < Integer.MIN_VALUE || l > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException
+                    (l + " cannot be cast to int without changing its value.");
+        }
+        return (int) l;
+    }
+
+    private void sendNextPacket() {
+        // Take pack aus Buffer
+        FCpacket packet = sendBuffer.get(nextPacketNum);
+
+        // Sende Packet
+        if (!packet.isValidACK() && packet.getTimer() == null) {
+            sendPacket(packet);
+        }
+        nextPacketNum++;
+    }
+
+    private void clientEinrichten() throws IOException{
+
+        server = InetAddress.getByName(servername);
+        // initialisieren des clientsockets
+        clientSocket = new DatagramSocket();
+        // Recievethread erstellen! (muss noch run durchgeführt werden ?)
+        receiveThread receiver = new receiveThread();
+        // sender erstellen! (ebenfalls run ausführen?)
+        sendThread sender = new sendThread();
+        //        server,this);
+
+        Date startTime = new Date();
+        receiver.setDaemon(true);
+        receiver.start();
+        sender.setDaemon(true);
+        sender.start();
+    }
+
+
+    private class sendThread extends Thread {
+        /* Thread for sending of one ACK-Packet with propagation delay */
+        DatagramPacket packet;
+
+        public sendThread(DatagramPacket packet) {
+            this.packet = packet;
+        }
+
+        public sendThread() {
+
+        }
+
+        public void run() {
+            try {
+                Thread.sleep(DELAY);
+                clientSocket.send(packet);
+            } catch (Exception e) {
+                e.printStackTrace();
+                System.err.println("Unexspected Error! " + e.toString());
+                System.exit(-1);
+            }
+        }
+    }
+
+    private class receiveThread extends Thread {
+
+        public void run() {
+            while (true) {
+                byte[] receiveData = new byte[8];
+                DatagramPacket data = new DatagramPacket(receiveData, 8);
+                //DatagramPacket data = new DatagramPacket();
+                try {
+                    testOut("Wait for Ack..");
+                    clientSocket.receive(data);
+                    testOut("Got Ack!");
+                    ackList.add(ByteBuffer.wrap(data.getData()).getLong());
+                    testOut("ACKLIST ===== " + ackList.size());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
 }
