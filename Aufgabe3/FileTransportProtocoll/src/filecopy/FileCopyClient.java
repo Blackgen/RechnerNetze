@@ -7,12 +7,12 @@ package filecopy;
  */
 
 import java.io.*;
-import java.net.*;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedList;
-import java.util.List;
 
 public class FileCopyClient extends Thread {
 
@@ -58,7 +58,7 @@ public class FileCopyClient extends Thread {
 
     // ... ToDo
     private LinkedList<FCpacket> sendBuffer;
-    private LinkedList<Long> ackList = new LinkedList<>();
+
     private int nextPacketNum;
 
 
@@ -66,7 +66,7 @@ public class FileCopyClient extends Thread {
     public FileCopyClient(String serverArg, String serverPortArg, String sourcePathArg,
                           String destPathArg, String windowSizeArg, String errorRateArg) throws IOException {
         servername = serverArg;
-        serverport = Integer.parseInt(serverArg);
+        serverport = Integer.parseInt(serverPortArg);
         sourcePath = sourcePathArg;
         destPath = destPathArg;
         windowSize = Integer.parseInt(windowSizeArg);
@@ -87,12 +87,18 @@ public class FileCopyClient extends Thread {
 
         sendBuffer.add(initPacket);
 
-
+        System.out.println(sourcePath);
         sendBuffer = readFileToPackets(sourcePath, DATA_LENGTH);
 
-        new receiveThread().start();
 
-        while() // Sende alle Pakete
+
+        while (nextPacketNum<sendBuffer.size()) {
+            // Sende alle Pakete
+            System.out.println("Sending "+nextPacketNum);
+            FCpacket packetToBeSent = sendBuffer.get(nextPacketNum);
+            if (!packetToBeSent.isValidACK()) {sendPacket(packetToBeSent);}
+            else {nextPacketNum++;}
+        }
 
 
 //            if (sendBuffer.size() < windowSize) {
@@ -106,30 +112,8 @@ public class FileCopyClient extends Thread {
 //            }
 
 
-        // Ack angekommen
-        if (ackList.size() > 0) {
-            testOut("Cleaning AckList");
-            for (long numb : ackList) {
-                FCpacket current = sendBuffer.stream().filter(x -> x.getSeqNum() == numb).findFirst().get();
-                cancelTimer(current);
-                long duration = System.nanoTime() - current.getTimestamp();
-                computeTimeoutValue(duration);
-                averageRTT += duration;
-                current.setValidACK(true);
-                testOut("Remove: " + numb);
-                ackList.remove(numb);
-                // TODO Timer neu berechnen
-                if (current.getSeqNum() == sendbase()) {
-                    for (FCpacket packet : sendBuffer) {
-                        if (packet.isValidACK()) {
-                            sendBuffer.remove(packet);
-                            testOut("------------------- TEST loeschen -------------------" + sendBuffer);
-                        } else break;
-                    }
-                }
-            }
+            // Ack angekommen
 
-        }
     }
 
     /**
@@ -209,7 +193,7 @@ public class FileCopyClient extends Thread {
 
     public static void main(String argv[]) throws Exception {
 //    FileCopyClient myClient = new FileCopyClient(argv[0], argv[1], argv[2], argv[3], argv[4]);
-        FileCopyClient myClient = new FileCopyClient("localhost", "23000", System.getProperty("user.dir") + "\\test.txt", "text.txt", "1", "1");
+        FileCopyClient myClient = new FileCopyClient("localhost", "23000", System.getProperty("user.dir") + "\\test.txt", "text.txt", "100", "1");
         myClient.runFileCopyClient();
     }
 
@@ -226,6 +210,7 @@ public class FileCopyClient extends Thread {
                 packetOut.getLen() + 8, server, SERVER_PORT);
         new sendThread(dataPacket).run();
         startTimer(packetOut);
+        nextPacketNum++;
     }
 
     private LinkedList<FCpacket> readFileToPackets(String path, int packetSize) {
@@ -257,13 +242,7 @@ public class FileCopyClient extends Thread {
         return result;
     }
 
-    public static int safeLongToInt(long l) {
-        if (l < Integer.MIN_VALUE || l > Integer.MAX_VALUE) {
-            throw new IllegalArgumentException
-                    (l + " cannot be cast to int without changing its value.");
-        }
-        return (int) l;
-    }
+
 
     private void sendNextPacket() {
         // Take pack aus Buffer
@@ -273,25 +252,21 @@ public class FileCopyClient extends Thread {
         if (!packet.isValidACK() && packet.getTimer() == null) {
             sendPacket(packet);
         }
-        nextPacketNum++;
     }
 
-    private void clientEinrichten() throws IOException{
+    private void clientEinrichten() throws IOException {
 
         server = InetAddress.getByName(servername);
         // initialisieren des clientsockets
         clientSocket = new DatagramSocket();
         // Recievethread erstellen! (muss noch run durchgeführt werden ?)
         receiveThread receiver = new receiveThread();
-        // sender erstellen! (ebenfalls run ausführen?)
-        sendThread sender = new sendThread();
-        //        server,this);
+
 
         Date startTime = new Date();
         receiver.setDaemon(true);
         receiver.start();
-        sender.setDaemon(true);
-        sender.start();
+
     }
 
 
@@ -303,11 +278,7 @@ public class FileCopyClient extends Thread {
             this.packet = packet;
         }
 
-        public sendThread() {
-
-        }
-
-        public void run() {
+              public void run() {
             try {
                 Thread.sleep(DELAY);
                 clientSocket.send(packet);
@@ -325,13 +296,19 @@ public class FileCopyClient extends Thread {
             while (true) {
                 byte[] receiveData = new byte[8];
                 DatagramPacket data = new DatagramPacket(receiveData, 8);
-                //DatagramPacket data = new DatagramPacket();
+
                 try {
                     testOut("Wait for Ack..");
                     clientSocket.receive(data);
                     testOut("Got Ack!");
-                    ackList.add(ByteBuffer.wrap(data.getData()).getLong());
-                    testOut("ACKLIST ===== " + ackList.size());
+                    long numb = ByteBuffer.wrap(data.getData()).getLong();
+                    FCpacket current = sendBuffer.stream().filter(x -> x.getSeqNum() == numb).findFirst().get();
+                    cancelTimer(current);
+                    long duration = System.nanoTime() - current.getTimestamp();
+                    computeTimeoutValue(duration);
+                    averageRTT += duration;
+                    current.setValidACK(true);
+
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
