@@ -88,13 +88,16 @@ public class FileCopyClient extends Thread {
         sendBuffer.add(initPacket);
 
         System.out.println(sourcePath);
-        sendBuffer = readFileToPackets(sourcePath, DATA_LENGTH);
+        sendBuffer.addAll(readFileToPackets(sourcePath, DATA_LENGTH));
 
 
 
         while (nextPacketNum<sendBuffer.size()) {
             // Sende alle Pakete
             System.out.println("Sending "+nextPacketNum);
+            testOut("Count: "+sendBuffer.size());
+            testOut("Base:  "+sendbase());
+            testOut("Next:  "+nextPacketNum);
             FCpacket packetToBeSent = sendBuffer.get(nextPacketNum);
             if (!packetToBeSent.isValidACK()) {sendPacket(packetToBeSent);}
             else {nextPacketNum++;}
@@ -132,7 +135,7 @@ public class FileCopyClient extends Thread {
 
         if (packet.getTimer() != null) {
             packet.getTimer().interrupt();
-        }
+        } else testOut("No timer found");
     }
 
     /**
@@ -193,7 +196,7 @@ public class FileCopyClient extends Thread {
 
     public static void main(String argv[]) throws Exception {
 //    FileCopyClient myClient = new FileCopyClient(argv[0], argv[1], argv[2], argv[3], argv[4]);
-        FileCopyClient myClient = new FileCopyClient("localhost", "23000", System.getProperty("user.dir") + "\\test.txt", "text.txt", "100", "1");
+        FileCopyClient myClient = new FileCopyClient("localhost", "23000", System.getProperty("user.dir") + "\\test.txt", "text.txt", "100", "100");
         myClient.runFileCopyClient();
     }
 
@@ -208,6 +211,8 @@ public class FileCopyClient extends Thread {
     private void sendPacket(FCpacket packetOut) {
         DatagramPacket dataPacket = new DatagramPacket(packetOut.getSeqNumBytesAndData(),
                 packetOut.getLen() + 8, server, SERVER_PORT);
+        packetOut.setTimestamp(System.nanoTime());
+        testOut("Send SeqNr: "+packetOut.getSeqNum());
         new sendThread(dataPacket).run();
         startTimer(packetOut);
         nextPacketNum++;
@@ -300,13 +305,17 @@ public class FileCopyClient extends Thread {
                 try {
                     testOut("Wait for Ack..");
                     clientSocket.receive(data);
-                    testOut("Got Ack!");
+
                     long numb = ByteBuffer.wrap(data.getData()).getLong();
+                    testOut("GOT ACK!");
                     FCpacket current = sendBuffer.stream().filter(x -> x.getSeqNum() == numb).findFirst().get();
                     cancelTimer(current);
+                    testOut("Canceled Timer");
                     long duration = System.nanoTime() - current.getTimestamp();
                     computeTimeoutValue(duration);
+                    testOut("Computed Timeout");
                     averageRTT += duration;
+                    testOut("Got Ack for Nr: "+numb+" after "+duration+"ns");
                     current.setValidACK(true);
 
                 } catch (IOException e) {
