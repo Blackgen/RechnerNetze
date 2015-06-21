@@ -40,7 +40,7 @@ public class SendeBuffer{
 
     // Falls nicht benötigt wegschmeißen
     public synchronized void setAckForPacket(FCpacket packetToAck) {
-
+        System.out.println("Set ack "+packetToAck.getSeqNum());
         packetToAck.setValidACK(true);
         if (!findBySequenceNr(packetToAck.getSeqNum()).isValidACK()) System.exit(-1);
     }

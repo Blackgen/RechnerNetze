@@ -95,11 +95,9 @@ public class FileCopyClient extends Thread {
         FCpacket initPacket = makeControlPacket();
 
         sendeBuffer.addPacket(initPacket);
-        //sendBuffer.add(initPacket);
-
-        System.out.println(sourcePath);
+        System.out.println("[FCclient] "+sourcePath);
         sendeBuffer.addAllPackets(readFileToPackets(sourcePath, DATA_LENGTH));
-        //sendBuffer.addAll(readFileToPackets(sourcePath, DATA_LENGTH));
+
 
 
 //        while (sendeBuffer.getNextPacketIndex() < sendeBuffer.size()-1) {
@@ -107,7 +105,7 @@ public class FileCopyClient extends Thread {
             // Sende alle Pakete
             int i=sendeBuffer.getNextPacketIndex();
             if (i < sendeBuffer.size() && i<sendeBuffer.getSendbase()+windowSize) {
-                System.out.println(Thread.currentThread().getName() + ": Sending " + sendeBuffer.getNextPacketIndex());
+                System.out.println("[FCclient] "+Thread.currentThread().getName() + ": Sending " + sendeBuffer.getNextPacketIndex());
                 testOut("Count: " + sendeBuffer.size() + ", Base:  " + getSendbaseSeqNr() + ", Next:  " + sendeBuffer.getNextPacketIndex());
 
                 FCpacket packetToBeSent = sendeBuffer.getPacket(sendeBuffer.getNextPacketIndex());
@@ -116,15 +114,21 @@ public class FileCopyClient extends Thread {
                 } else {
                     sendeBuffer.increaseIndex();
                 }
-            } else {
+            }
+            else {
                 try {
                     Thread.sleep(5);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
+            sendeBuffer.computeSendbase();
             if (shouldWait) {
+                System.out.println("[FCclient] "+"Jump back");
 
+                sendeBuffer.setNextPacketIndex(sendeBuffer.getSendbase());
+                shouldWait=false;
+                /*
                 try {
                     isWaiting = true;
                     testOut("going to Sleep now. sW-" + shouldWait);
@@ -135,29 +139,14 @@ public class FileCopyClient extends Thread {
                     testOut("Woken Up! " + sendeBuffer.getNextPacketIndex());
                 } catch (InterruptedException e) {
                     testOut("Woken Up by Bell!");
-                }
+                }*/
 
             }
-            sendeBuffer.computeSendbase();
+
         }
         writeGreen("Sending Done!");
         writeGreen("Sent " + globalPacketCount + " Packets.");
         writeGreen("Sending took " + (double) (System.nanoTime() - startTimespamp) / 1000000000 + "s");
-
-
-//            if (sendBuffer.size() < windowSize) {
-//                testOut("New Packet");
-//
-//                // Sende Bumsdings
-//                FCpacket pack = sendBuffer.stream().filter(x -> x.getSeqNum() == nextSeqNum()).findFirst().get();
-//                sendPacket(pack);
-//                startTimer(pack);
-//                nextPacketNum++;
-//            }
-
-
-        // Ack angekommen
-
     }
 
     /**
@@ -188,11 +177,12 @@ public class FileCopyClient extends Thread {
         if (seqNum < nextSeqNum() && !FileCopyClient.shouldWait) {
             setTimeoutValue(getTimeoutValue() * 2);
             FileCopyClient.shouldWait = true;
+
             testOut("sw-SETTRUE - " + FileCopyClient.shouldWait);
 
-
+            /*
             while (!isWaiting) {
-                System.out.println("WAiting.." + isWaiting);
+                System.out.println("[FCclient] "+"WAiting.." + isWaiting);
 
                 try {
                     Thread.sleep(10);
@@ -201,7 +191,7 @@ public class FileCopyClient extends Thread {
                     e.printStackTrace();
                 }
             }
-            System.out.println("2-WAiting.." + isWaiting);
+            System.out.println("[FCclient] "+"2-WAiting.." + isWaiting);
             FCpacket f = sendeBuffer.findBySequenceNr(seqNum);
             //FCpacket f = sendBuffer.stream().filter(x -> x.getSeqNum() == seqNum).findFirst().get();
             int i;
@@ -210,14 +200,14 @@ public class FileCopyClient extends Thread {
                 if (c.getSeqNum() == seqNum) break;
             }
             if (sendeBuffer.getNextPacketIndex() > i) {
-                System.out.println("Jumping Back to " + i);
+                System.out.println("[FCclient] "+"Jumping Back to " + i);
                 sendeBuffer.setNextPacketIndex(sendeBuffer.getSendbase());
             }
             FileCopyClient.shouldWait = false;
             testOut("sw-SETFALSE - " + FileCopyClient.shouldWait);
             synchronized (lock) {
                 lock.notify();
-            }
+            }*/
 
         }
 
@@ -273,7 +263,7 @@ public class FileCopyClient extends Thread {
 
     public static void main(String argv[]) throws Exception {
 //    FileCopyClient myClient = new FileCopyClient(argv[0], argv[1], argv[2], argv[3], argv[4]);
-        FileCopyClient myClient = new FileCopyClient("localhost", "23000", System.getProperty("user.dir") + "\\FCdata.pdf", "out.pdf", "100", "100");
+        FileCopyClient myClient = new FileCopyClient("localhost", "23000", System.getProperty("user.dir") + "\\FCdata.pdf", "out.pdf", "100", "898");
         myClient.runFileCopyClient();
     }
 
@@ -341,18 +331,17 @@ public class FileCopyClient extends Thread {
         server = InetAddress.getByName(servername);
         // initialisieren des clientsockets
         clientSocket = new DatagramSocket();
+
         // Recievethread erstellen! (muss noch run durchgeführt werden ?)
         receiveThread receiver = new receiveThread();
 
-
-        Date startTime = new Date();
         receiver.setDaemon(true);
         receiver.start();
 
     }
 
     public void writeGreen(String text) {
-        System.out.println("\u001B[32m" + text + "\u001B[0m");
+        System.out.println("[FCclient] "+"\u001B[32m" + text + "\u001B[0m");
     }
 
     private class sendThread extends Thread {
@@ -394,11 +383,15 @@ public class FileCopyClient extends Thread {
                     testOut("Canceled Timer SeqNr. " + numb);
                     long duration = System.nanoTime() - current.getTimestamp();
                     //if (getTimeoutValue() > duration) current.setValidACK(true);
-                    if (getTimeoutValue() > duration) sendeBuffer.setAckForPacket(current);
+                    if (getTimeoutValue() > duration) {sendeBuffer.setAckForPacket(current);
                     computeTimeoutValue(duration);
                     testOut("Computed Timeout SeqNr. " + numb);
                     averageRTT += duration;
-                    testOut("Got Ack for Nr: " + numb + " after " + duration + "ns");
+                    testOut("Got Ack for Nr: " + numb + " after " + duration + "ns");}
+                    else {
+                        FileCopyClient.shouldWait=true;
+                        System.out.println("[FCclient] "+"H4x timer too long "+current.getSeqNum());
+                    }
 
 
                 } catch (IOException e) {
