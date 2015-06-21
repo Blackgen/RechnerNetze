@@ -108,7 +108,7 @@ public class FileCopyServer {
                                 // open destination file
                                 testOut(">" + destPath);
                                 outToFile = new FileOutputStream(destPath);
-                                testOut(outToFile.toString());
+
                             } else {
                                 // Wrong parameter packet --> End!
                                 break;
